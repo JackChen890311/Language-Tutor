@@ -1,9 +1,8 @@
 import inspect
-from unittest.mock import MagicMock
-from models.base import BaseLLM, BaseVLM, BaseTTS, BaseSTT
 
 
 def test_base_classes_are_abstract():
+    from models.base import BaseLLM, BaseVLM, BaseTTS, BaseSTT
     assert inspect.isabstract(BaseLLM)
     assert inspect.isabstract(BaseVLM)
     assert inspect.isabstract(BaseTTS)
