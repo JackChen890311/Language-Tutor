@@ -39,7 +39,7 @@ class MLXLLMModel(BaseLLM):
         self._ensure_loaded()
         prompt = self._build_prompt(messages, system_prompt)
         for token in stream_generate(self._model, self._tokenizer, prompt=prompt, max_tokens=2048):
-            yield token
+            yield token.text
 
     def unload(self) -> None:
         self._model = None

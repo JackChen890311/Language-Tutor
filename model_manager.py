@@ -14,8 +14,13 @@ class ModelManager:
         self._stt: BaseSTT | None = None
 
     def is_model_available(self, slot: str) -> bool:
+        import os
         model_id: str = self.config[slot]["model"]
-        cache_dir = Path.home() / ".cache" / "huggingface" / "hub"
+        hf_cache = (
+            os.environ.get("HF_HUB_CACHE")
+            or os.path.join(os.environ.get("HF_HOME", str(Path.home() / ".cache" / "huggingface")), "hub")
+        )
+        cache_dir = Path(hf_cache)
         dir_name = "models--" + model_id.replace("/", "--")
         return (cache_dir / dir_name).exists()
 
@@ -48,6 +53,8 @@ class ModelManager:
         return self._stt
 
     def unload(self, slot: str) -> None:
+        if slot not in ("llm", "vlm", "tts", "stt"):
+            raise ValueError(f"Unknown model slot: {slot!r}. Must be one of: llm, vlm, tts, stt")
         model = getattr(self, f"_{slot}")
         if model is not None:
             model.unload()
