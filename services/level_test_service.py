@@ -23,7 +23,10 @@ class LevelTestService:
         raw = raw.strip()
         if raw.startswith("```"):
             raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
-        return json.loads(raw)
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"LLM returned invalid JSON for level test: {e}") from e
 
     def evaluate(self, questions: list[dict], answers: list[str], target_lang: str) -> dict:
         correct = sum(1 for q, a in zip(questions, answers) if q["correct"] == a)

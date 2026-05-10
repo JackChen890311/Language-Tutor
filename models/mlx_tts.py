@@ -11,7 +11,11 @@ class MLXTTSModel(BaseTTS):
     def _ensure_loaded(self) -> None:
         if self._pipeline is None:
             from mlx_audio.tts.models.kokoro import KokoroPipeline
-            self._pipeline = KokoroPipeline(lang_code="j")  # multilingual
+            self._pipeline = KokoroPipeline(
+                lang_code="j",
+                model=True,
+                repo_id="prince-canuma/Kokoro-82M",
+            )  # multilingual; model=True auto-loads KokoroModel weights
 
     def load(self) -> None:
         self._ensure_loaded()

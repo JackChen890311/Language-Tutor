@@ -54,7 +54,10 @@ class WordListService:
         raw = raw.strip()
         if raw.startswith("```"):
             raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
-        return json.loads(raw)
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            return {}
 
     def get_word(self, lang: str, word_id: str) -> dict | None:
         words = self._store.load_wordlist(lang)
