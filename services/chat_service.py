@@ -47,6 +47,7 @@ class ChatService:
 
         context = self._memory.assemble_context(lang, session_id)
         context.append({"role": "user", "content": user_text})
+        # messages: raw storage list (no summary); context: LLM input (may include summary prefix)
 
         system_prompt = self._pb.chat_system_prompt(
             native_lang=native_lang, target_lang=lang, level=level

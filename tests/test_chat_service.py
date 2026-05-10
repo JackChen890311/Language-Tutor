@@ -1,4 +1,3 @@
-import re
 from unittest.mock import MagicMock
 from services.chat_service import ChatService, extract_word_suggestions
 from services.memory_service import MemoryService
@@ -56,3 +55,18 @@ def test_send_message_extracts_word_suggestions(tmp_store, mock_llm):
     result = svc.send_message("ja", sid, "zh-TW", "N4", "What does eat mean?", image_path=None)
     assert len(result["word_suggestions"]) == 1
     assert "<!--" not in result["response"]
+
+
+def test_send_message_with_image_uses_vlm(tmp_store, mock_llm, mock_vlm):
+    mock_vlm.generate.return_value = "画像に猫がいます。"
+    pb = PromptBuilder()
+    mm = MagicMock()
+    mm.get_llm.return_value = mock_llm
+    mm.get_vlm.return_value = mock_vlm
+    memory_svc = MemoryService(tmp_store, mm, pb)
+    svc = ChatService(tmp_store, mm, pb, memory_svc)
+    sid = tmp_store.create_chat_session("ja", "Test")
+    result = svc.send_message("ja", sid, "zh-TW", "N4", "What is this?", image_path="/tmp/fake.jpg")
+    assert result["response"] == "画像に猫がいます。"
+    mm.get_vlm.assert_called_once()
+    mm.get_llm.assert_not_called()
