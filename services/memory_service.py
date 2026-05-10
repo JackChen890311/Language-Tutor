@@ -26,7 +26,7 @@ class MemoryService:
         if len(messages) < SUMMARIZE_TRIGGER:
             return
         to_summarize = messages[:SUMMARIZE_COUNT]
-        keep = messages[SUMMARIZE_COUNT:]
+        keep = messages[-FULL_WINDOW:]
         conversation_text = "\n".join(
             f"{m['role'].upper()}: {m['content']}" for m in to_summarize
         )

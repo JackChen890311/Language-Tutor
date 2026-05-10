@@ -63,3 +63,35 @@ def test_maybe_summarize_triggers_at_35(tmp_store, mock_llm):
     assert len(remaining) == 15
     summary = tmp_store.load_chat_summary("ja", sid)
     assert "Summary of conversation." in summary
+
+
+def test_maybe_summarize_no_trigger_at_34(tmp_store, mock_llm):
+    pb = PromptBuilder()
+    mm = MagicMock()
+    mm.get_llm.return_value = mock_llm
+    svc = MemoryService(tmp_store, mm, pb)
+    sid = tmp_store.create_chat_session("ja", "Test")
+    messages = _make_messages(34)
+    tmp_store.save_chat_messages("ja", sid, messages)
+    svc.maybe_summarize("ja", sid, "zh-TW")
+    mock_llm.generate.assert_not_called()
+
+
+def test_maybe_summarize_second_cycle_appends(tmp_store, mock_llm):
+    pb = PromptBuilder()
+    mm = MagicMock()
+    mm.get_llm.return_value = mock_llm
+    mock_llm.generate.return_value = "Second summary."
+    svc = MemoryService(tmp_store, mm, pb)
+    sid = tmp_store.create_chat_session("ja", "Test")
+    # Seed an existing summary (from a prior cycle)
+    tmp_store.append_chat_summary("ja", sid, "First summary.")
+    # Start the second cycle with a fresh 35-message window
+    messages = _make_messages(35)
+    tmp_store.save_chat_messages("ja", sid, messages)
+    svc.maybe_summarize("ja", sid, "zh-TW")
+    summary = tmp_store.load_chat_summary("ja", sid)
+    assert "First summary." in summary
+    assert "Second summary." in summary
+    remaining = tmp_store.load_chat_messages("ja", sid)
+    assert len(remaining) == 15
