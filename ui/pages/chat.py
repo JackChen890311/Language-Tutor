@@ -74,19 +74,25 @@ def render() -> None:
         with st.chat_message("user"):
             st.write(final_input)
 
+        collector = chat_svc.stream_message(
+            lang=target_lang,
+            session_id=active_session,
+            native_lang=native_lang,
+            level=level,
+            user_text=final_input,
+            image_path=image_path,
+        )
         with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                result = chat_svc.send_message(
-                    lang=target_lang,
-                    session_id=active_session,
-                    native_lang=native_lang,
-                    level=level,
-                    user_text=final_input,
-                    image_path=image_path,
-                )
-            st.write(result["response"])
-            render_tts_button(result["response"], lang=target_lang, key="latest")
+            st.write_stream(collector)
+            render_tts_button(collector.full_text, lang=target_lang, key="latest")
 
+        result = chat_svc.commit_message(
+            lang=target_lang,
+            session_id=active_session,
+            native_lang=native_lang,
+            user_text=final_input,
+            raw_response=collector.full_text,
+        )
         render_word_chips(result.get("word_suggestions", []), lang=target_lang, native_lang=native_lang)
 
         language_svc.update_streak(target_lang)

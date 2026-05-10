@@ -49,11 +49,15 @@ def _render_topic_picker(lesson_svc, target_lang, native_lang, level) -> None:
 
 
 def _start_lesson(lesson_svc, target_lang, native_lang, level, topic, difficulty) -> None:
-    with st.spinner(f"Preparing lesson on '{topic}'..."):
-        result = lesson_svc.start_lesson(target_lang, native_lang, level, topic, difficulty=difficulty)
+    lesson_id, session_id, collector = lesson_svc.stream_start_lesson(
+        target_lang, native_lang, level, topic, difficulty=difficulty
+    )
+    with st.chat_message("assistant"):
+        st.write_stream(collector)
+    result = lesson_svc.commit_start_lesson(target_lang, session_id, lesson_id, topic, collector.full_text)
     st.session_state.active_lesson = {
-        "lesson_id": result["lesson_id"],
-        "session_id": result["session_id"],
+        "lesson_id": lesson_id,
+        "session_id": session_id,
         "topic": topic,
         "difficulty": difficulty,
         "phase": result["phase"],
@@ -99,21 +103,27 @@ def _render_active_lesson(lesson_svc, language_svc, target_lang, native_lang, le
         with st.chat_message("user"):
             st.write(user_input)
 
+        collector = lesson_svc.stream_continue_lesson(
+            target_lang=target_lang,
+            session_id=lesson["session_id"],
+            native_lang=native_lang,
+            level=level,
+            topic=topic,
+            phase=lesson["phase"],
+            difficulty=lesson["difficulty"],
+            user_text=user_input,
+        )
         with st.chat_message("assistant"):
-            with st.spinner("..."):
-                result = lesson_svc.continue_lesson(
-                    target_lang=target_lang,
-                    session_id=lesson["session_id"],
-                    lesson_id=lesson["lesson_id"],
-                    native_lang=native_lang,
-                    level=level,
-                    topic=topic,
-                    phase=lesson["phase"],
-                    difficulty=lesson["difficulty"],
-                    user_text=user_input,
-                )
-            st.write(result["response"])
-            render_tts_button(result["response"], lang=target_lang, key="lesson_latest")
+            st.write_stream(collector)
+            render_tts_button(collector.full_text, lang=target_lang, key="lesson_latest")
+        result = lesson_svc.commit_continue_lesson(
+            target_lang=target_lang,
+            session_id=lesson["session_id"],
+            lesson_id=lesson["lesson_id"],
+            user_text=user_input,
+            raw_response=collector.full_text,
+            phase=lesson["phase"],
+        )
 
         lesson["messages"].append({"role": "assistant", "content": result["response"]})
         lesson["word_suggestions"] = result.get("word_suggestions", [])

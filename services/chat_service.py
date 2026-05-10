@@ -1,5 +1,6 @@
 import json
 import re
+from typing import Iterator
 
 from data_store.data_store import DataStore
 from model_manager import ModelManager
@@ -7,6 +8,44 @@ from services.memory_service import MemoryService
 from services.prompt_builder import PromptBuilder
 
 _WORD_SUGGESTION_RE = re.compile(r"<!--WORD_SUGGESTION:(.*?)-->", re.DOTALL)
+
+
+class StreamCollector:
+    """Wraps a token generator: yields display-safe tokens (WORD_SUGGESTION markers
+    filtered out) while accumulating the full raw text in .full_text."""
+
+    def __init__(self, token_gen: Iterator[str]):
+        self._gen = token_gen
+        self.full_text = ""
+
+    def __iter__(self) -> Iterator[str]:
+        buf = ""
+        for token in self._gen:
+            self.full_text += token
+            buf += token
+            while True:
+                marker_start = buf.find("<!--")
+                if marker_start == -1:
+                    if buf:
+                        yield buf
+                        buf = ""
+                    break
+                if marker_start > 0:
+                    yield buf[:marker_start]
+                    buf = buf[marker_start:]
+                end = buf.find("-->")
+                if end == -1:
+                    break  # incomplete marker — wait for more tokens
+                chunk = buf[:end + 3]
+                buf = buf[end + 3:]
+                if "WORD_SUGGESTION:" not in chunk:
+                    yield chunk
+        if buf:
+            m = buf.find("<!--")
+            if m > 0:
+                yield buf[:m]
+            elif m == -1:
+                yield buf
 
 
 _SENTENCE_CHARS = set("。、！？.!?,；;")
@@ -81,6 +120,43 @@ class ChatService:
         self._store.save_chat_messages(lang, session_id, messages)
         self._memory.maybe_summarize(lang, session_id, native_lang)
 
+        return {"response": clean_response, "word_suggestions": word_suggestions}
+
+    def stream_message(
+        self,
+        lang: str,
+        session_id: str,
+        native_lang: str,
+        level: str,
+        user_text: str,
+        image_path: str | None = None,
+    ) -> StreamCollector:
+        context = self._memory.assemble_context(lang, session_id)
+        context.append({"role": "user", "content": user_text})
+        system_prompt = self._pb.chat_system_prompt(native_lang=native_lang, target_lang=lang, level=level)
+        if image_path:
+            vlm = self._mm.get_vlm()
+            raw = vlm.generate(context, image=image_path, system_prompt=system_prompt)
+            def _wrap(t: str) -> Iterator[str]:
+                yield t
+            return StreamCollector(_wrap(raw))
+        llm = self._mm.get_llm()
+        return StreamCollector(llm.stream(context, system_prompt=system_prompt, enable_thinking=False))
+
+    def commit_message(
+        self,
+        lang: str,
+        session_id: str,
+        native_lang: str,
+        user_text: str,
+        raw_response: str,
+    ) -> dict:
+        messages = self._store.load_chat_messages(lang, session_id)
+        messages.append({"role": "user", "content": user_text})
+        clean_response, word_suggestions = extract_word_suggestions(raw_response)
+        messages.append({"role": "assistant", "content": clean_response})
+        self._store.save_chat_messages(lang, session_id, messages)
+        self._memory.maybe_summarize(lang, session_id, native_lang)
         return {"response": clean_response, "word_suggestions": word_suggestions}
 
     def get_history(self, lang: str, session_id: str) -> list[dict]:

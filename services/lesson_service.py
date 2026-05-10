@@ -3,7 +3,7 @@ import uuid
 
 from data_store.data_store import DataStore
 from model_manager import ModelManager
-from services.chat_service import extract_word_suggestions
+from services.chat_service import StreamCollector, extract_word_suggestions
 from services.prompt_builder import PromptBuilder
 
 
@@ -100,6 +100,82 @@ class LessonService:
             existing_notes + f"\n\n**User:** {user_text}\n\n**Tutor:** {clean_response}"
         )
 
+        return {"response": clean_response, "word_suggestions": word_suggestions, "phase": phase}
+
+    def stream_start_lesson(
+        self,
+        target_lang: str,
+        native_lang: str,
+        level: str,
+        topic: str,
+        difficulty: str = "Normal",
+    ) -> tuple[str, str, StreamCollector]:
+        lesson_id = f"lesson-{uuid.uuid4().hex[:8]}"
+        session_id = self._store.create_chat_session(target_lang, f"📝 {topic}", lesson_id=lesson_id)
+        system_prompt = self._pb.lesson_system_prompt(
+            native_lang=native_lang, target_lang=target_lang, level=level,
+            topic=topic, phase="structured", difficulty=difficulty,
+        )
+        llm = self._mm.get_llm()
+        collector = StreamCollector(llm.stream(
+            [{"role": "user", "content": "Please start the lesson."}],
+            system_prompt=system_prompt,
+            enable_thinking=False,
+        ))
+        return lesson_id, session_id, collector
+
+    def commit_start_lesson(
+        self, target_lang: str, session_id: str, lesson_id: str, topic: str, raw_response: str
+    ) -> dict:
+        clean_response, word_suggestions = extract_word_suggestions(raw_response)
+        self._store.save_chat_messages(target_lang, session_id, [
+            {"role": "assistant", "content": clean_response}
+        ])
+        self._store.save_lesson_notes(target_lang, lesson_id, f"# Lesson: {topic}\n\n{clean_response}")
+        return {
+            "lesson_id": lesson_id, "session_id": session_id,
+            "response": clean_response, "word_suggestions": word_suggestions, "phase": "structured",
+        }
+
+    def stream_continue_lesson(
+        self,
+        target_lang: str,
+        session_id: str,
+        native_lang: str,
+        level: str,
+        topic: str,
+        phase: str,
+        difficulty: str,
+        user_text: str,
+    ) -> StreamCollector:
+        messages = self._store.load_chat_messages(target_lang, session_id)
+        messages.append({"role": "user", "content": user_text})
+        system_prompt = self._pb.lesson_system_prompt(
+            native_lang=native_lang, target_lang=target_lang, level=level,
+            topic=topic, phase=phase, difficulty=difficulty,
+        )
+        llm = self._mm.get_llm()
+        return StreamCollector(llm.stream(messages, system_prompt=system_prompt, enable_thinking=False))
+
+    def commit_continue_lesson(
+        self,
+        target_lang: str,
+        session_id: str,
+        lesson_id: str,
+        user_text: str,
+        raw_response: str,
+        phase: str,
+    ) -> dict:
+        messages = self._store.load_chat_messages(target_lang, session_id)
+        messages.append({"role": "user", "content": user_text})
+        clean_response, word_suggestions = extract_word_suggestions(raw_response)
+        messages.append({"role": "assistant", "content": clean_response})
+        self._store.save_chat_messages(target_lang, session_id, messages)
+        existing_notes = self._store.load_lesson_notes(target_lang, lesson_id)
+        self._store.save_lesson_notes(
+            target_lang, lesson_id,
+            existing_notes + f"\n\n**User:** {user_text}\n\n**Tutor:** {clean_response}"
+        )
         return {"response": clean_response, "word_suggestions": word_suggestions, "phase": phase}
 
     def finish_lesson(self, target_lang: str, topic: str) -> None:
