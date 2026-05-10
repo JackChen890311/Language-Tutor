@@ -11,11 +11,8 @@ from services.level_test_service import LevelTestService
 
 
 def init_services() -> None:
-    if st.session_state.get("_initialized"):
-        return
-
     store = DataStore()
-    mm = ModelManager()
+    mm = st.session_state.get("mm") or ModelManager()  # reuse to keep models loaded
     pb = PromptBuilder()
     memory_svc = MemoryService(store, mm, pb)
 
@@ -28,7 +25,6 @@ def init_services() -> None:
     st.session_state.word_svc = WordListService(store, mm, pb)
     st.session_state.lesson_svc = LessonService(store, mm, pb)
     st.session_state.level_test_svc = LevelTestService(store, mm, pb)
-    st.session_state._initialized = True
 
 
 def get(key: str):
