@@ -1,7 +1,14 @@
 import gc
+import re
 from typing import Iterator
 
 from models.base import BaseLLM
+
+_THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
+
+
+def _strip_thinking(text: str) -> str:
+    return _THINK_RE.sub("", text).strip()
 
 
 class MLXLLMModel(BaseLLM):
@@ -32,14 +39,31 @@ class MLXLLMModel(BaseLLM):
         from mlx_lm import generate
         self._ensure_loaded()
         prompt = self._build_prompt(messages, system_prompt)
-        return generate(self._model, self._tokenizer, prompt=prompt, max_tokens=2048, verbose=False)
+        raw = generate(self._model, self._tokenizer, prompt=prompt, max_tokens=2048, verbose=False)
+        return _strip_thinking(raw)
 
     def stream(self, messages: list[dict], system_prompt: str = "") -> Iterator[str]:
         from mlx_lm import stream_generate
         self._ensure_loaded()
         prompt = self._build_prompt(messages, system_prompt)
+        buffer = []
+        in_think = False
         for token in stream_generate(self._model, self._tokenizer, prompt=prompt, max_tokens=2048):
-            yield token.text
+            text = token.text
+            buffer.append(text)
+            joined = "".join(buffer)
+            if "<think>" in joined:
+                in_think = True
+            if in_think:
+                if "</think>" in joined:
+                    in_think = False
+                    after = joined.split("</think>", 1)[1]
+                    buffer = [after]
+                    if after:
+                        yield after
+                continue
+            yield text
+            buffer = []
 
     def unload(self) -> None:
         self._model = None
