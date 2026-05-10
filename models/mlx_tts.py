@@ -26,7 +26,7 @@ class MLXTTSModel(BaseTTS):
         import numpy as np
         self._ensure_loaded()
         audio_chunks = []
-        for _, _, audio in self._pipeline(text):
+        for _, _, audio in self._pipeline(text, voice="af_heart"):
             if audio is not None:
                 audio_chunks.append(audio)
         if not audio_chunks:
