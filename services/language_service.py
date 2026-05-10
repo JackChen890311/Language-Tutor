@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from data_store.data_store import DataStore
 
 PROFICIENCY_FRAMEWORKS: dict[str, dict] = {
@@ -47,7 +47,7 @@ class LanguageService:
 
         if last_active == today:
             return
-        yesterday = date.fromordinal(date.today().toordinal() - 1).isoformat()
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
         streak = (streak + 1) if last_active == yesterday else 1
         level_data["streak"] = streak
         level_data["last_active"] = today
@@ -65,6 +65,7 @@ class LanguageService:
             "words_reviewed_this_week": sum(
                 1 for w in words
                 if w.get("review_stats", {}).get("last_reviewed") is not None
+                and w["review_stats"]["last_reviewed"] >= (date.today() - timedelta(days=7)).isoformat()
             ),
             "lessons_completed": len(lessons.get("completed", [])),
         }

@@ -1,5 +1,6 @@
 from datetime import date
 from services.language_service import LanguageService, PROFICIENCY_FRAMEWORKS
+from freezegun import freeze_time
 
 
 def test_get_set_language_pair(tmp_store):
@@ -49,3 +50,38 @@ def test_get_stats_defaults(tmp_store):
     assert stats["words_saved"] == 0
     assert stats["lessons_completed"] == 0
     assert stats["level"] == ""
+
+
+def test_update_streak_same_day_no_double_count(tmp_store):
+    with freeze_time("2026-05-10"):
+        svc = LanguageService(tmp_store)
+        svc.update_streak("ja")
+        svc.update_streak("ja")
+        stats = svc.get_stats("ja")
+        assert stats["streak"] == 1
+
+
+def test_update_streak_consecutive_days(tmp_store):
+    svc = LanguageService(tmp_store)
+    with freeze_time("2026-05-09"):
+        svc.update_streak("ja")
+    with freeze_time("2026-05-10"):
+        svc.update_streak("ja")
+        stats = svc.get_stats("ja")
+        assert stats["streak"] == 2
+
+
+def test_update_streak_gap_resets(tmp_store):
+    svc = LanguageService(tmp_store)
+    with freeze_time("2026-05-08"):
+        svc.update_streak("ja")
+    with freeze_time("2026-05-10"):
+        svc.update_streak("ja")
+        stats = svc.get_stats("ja")
+        assert stats["streak"] == 1
+
+
+def test_get_proficiency_framework_zh_tw(tmp_store):
+    svc = LanguageService(tmp_store)
+    framework = svc.get_proficiency_framework("zh-TW")
+    assert framework["name"] == "HSK"
