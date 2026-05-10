@@ -1,6 +1,7 @@
 import streamlit as st
 from ui.state import get
 from ui.components.word_chip import render_word_chips
+from ui.components.stream_display import stream_with_thinking
 from ui.components.audio_controls import render_tts_button
 
 
@@ -53,7 +54,7 @@ def _start_lesson(lesson_svc, target_lang, native_lang, level, topic, difficulty
         target_lang, native_lang, level, topic, difficulty=difficulty
     )
     with st.chat_message("assistant"):
-        st.write_stream(collector)
+        stream_with_thinking(collector)
     result = lesson_svc.commit_start_lesson(target_lang, session_id, lesson_id, topic, collector.full_text)
     st.session_state.active_lesson = {
         "lesson_id": lesson_id,
@@ -114,7 +115,7 @@ def _render_active_lesson(lesson_svc, language_svc, target_lang, native_lang, le
             user_text=user_input,
         )
         with st.chat_message("assistant"):
-            st.write_stream(collector)
+            stream_with_thinking(collector)
             render_tts_button(collector.full_text, lang=target_lang, key="lesson_latest")
         result = lesson_svc.commit_continue_lesson(
             target_lang=target_lang,

@@ -3,6 +3,7 @@ import streamlit as st
 from ui.state import get
 from ui.components.word_chip import render_word_chips
 from ui.components.audio_controls import render_tts_button, render_stt_input
+from ui.components.stream_display import stream_with_thinking
 
 
 def render() -> None:
@@ -83,7 +84,7 @@ def render() -> None:
             image_path=image_path,
         )
         with st.chat_message("assistant"):
-            st.write_stream(collector)
+            stream_with_thinking(collector)
             render_tts_button(collector.full_text, lang=target_lang, key="latest")
 
         result = chat_svc.commit_message(
