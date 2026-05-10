@@ -39,8 +39,10 @@ class PromptBuilder:
             f"- When the user makes a mistake, always correct it: note the error, "
             f"explain why it is wrong, give the correct form, then continue naturally\n"
             f"- Tone: encouraging and patient; corrections are matter-of-fact, never condescending\n"
-            f"- When you introduce a word likely to be new at {level}, append this marker:\n"
-            f"  <!--WORD_SUGGESTION:{{\"word\": \"...\", \"reading\": \"...\"}}-->\n"
+            f"- When you introduce a single vocabulary word (not a phrase or sentence) "
+            f"likely to be new at {level}, append exactly one marker per unique word:\n"
+            f"  <!--WORD_SUGGESTION:{{\"word\": \"<single word>\", \"reading\": \"<reading/pronunciation>\"}}-->\n"
+            f"  Do NOT repeat the same word marker twice.\n"
             f"{self._chinese_rule(native_lang)}"
         )
 
@@ -128,7 +130,9 @@ class PromptBuilder:
             f"Native language: {self._lang_name(native_lang)} ({native_lang})\n\n"
             f"{phase_instructions}\n"
             f"Always explain in {self._lang_name(native_lang)}. Practice in {self._lang_name(target_lang)}.\n"
-            f"When you introduce a word likely to be new at {level}, append:\n"
-            f"<!--WORD_SUGGESTION:{{\"word\": \"...\", \"reading\": \"...\"}}-->\n"
+            f"When you introduce a single vocabulary word (not a phrase or sentence) "
+            f"likely to be new at {level}, append exactly one marker per unique word:\n"
+            f"<!--WORD_SUGGESTION:{{\"word\": \"<single word>\", \"reading\": \"<reading/pronunciation>\"}}-->\n"
+            f"Do NOT repeat the same word marker twice.\n"
             f"{self._chinese_rule(native_lang)}"
         )

@@ -9,13 +9,29 @@ from services.prompt_builder import PromptBuilder
 _WORD_SUGGESTION_RE = re.compile(r"<!--WORD_SUGGESTION:(.*?)-->", re.DOTALL)
 
 
+_SENTENCE_CHARS = set("。、！？.!?,；;")
+
+
+def _is_valid_word(word: str) -> bool:
+    if not word or len(word) > 25:
+        return False
+    return not any(c in _SENTENCE_CHARS for c in word)
+
+
 def extract_word_suggestions(text: str) -> tuple[str, list[dict]]:
     suggestions = []
+    seen: set[str] = set()
     for match in _WORD_SUGGESTION_RE.finditer(text):
         try:
-            suggestions.append(json.loads(match.group(1)))
+            entry = json.loads(match.group(1))
         except json.JSONDecodeError:
-            pass
+            continue
+        word = entry.get("word", "").strip()
+        if not _is_valid_word(word) or word in seen:
+            continue
+        seen.add(word)
+        entry["word"] = word
+        suggestions.append(entry)
     clean = _WORD_SUGGESTION_RE.sub("", text).strip()
     return clean, suggestions
 
