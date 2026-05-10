@@ -80,3 +80,20 @@ def test_update_review_stats(tmp_store, mock_llm):
     updated = svc.get_word("ja", word["id"])
     assert updated["review_stats"]["correct"] == 1
     assert updated["review_stats"]["last_reviewed"] == date.today().isoformat()
+
+
+def test_get_stale_words_returns_unreviewed(tmp_store, mock_llm):
+    mock_llm.generate.return_value = _mock_enrichment()
+    svc = _make_svc(tmp_store, mock_llm)
+    svc.add_word("ja", "zh-TW", "食べる", source="chat")
+    stale = svc.get_stale_words("ja")
+    assert len(stale) == 1
+    assert stale[0]["word"] == "食べる"
+
+
+def test_has_stale_words_false_after_review(tmp_store, mock_llm):
+    mock_llm.generate.return_value = _mock_enrichment()
+    svc = _make_svc(tmp_store, mock_llm)
+    word = svc.add_word("ja", "zh-TW", "食べる", source="chat")
+    svc.update_review_stats("ja", word["id"], correct=True)
+    assert svc.has_stale_words("ja") is False
