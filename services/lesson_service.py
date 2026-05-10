@@ -52,6 +52,7 @@ class LessonService:
         raw_response = llm.generate(
             [{"role": "user", "content": "Please start the lesson."}],
             system_prompt=system_prompt,
+            enable_thinking=False,
         )
         clean_response, word_suggestions = extract_word_suggestions(raw_response)
         self._store.save_chat_messages(target_lang, session_id, [
@@ -87,7 +88,7 @@ class LessonService:
             topic=topic, phase=phase, difficulty=difficulty,
         )
         llm = self._mm.get_llm()
-        raw_response = llm.generate(messages, system_prompt=system_prompt)
+        raw_response = llm.generate(messages, system_prompt=system_prompt, enable_thinking=False)
         clean_response, word_suggestions = extract_word_suggestions(raw_response)
 
         messages.append({"role": "assistant", "content": clean_response})

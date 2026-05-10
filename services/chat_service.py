@@ -74,7 +74,7 @@ class ChatService:
             raw_response = vlm.generate(context, image=image_path, system_prompt=system_prompt)
         else:
             llm = self._mm.get_llm()
-            raw_response = llm.generate(context, system_prompt=system_prompt)
+            raw_response = llm.generate(context, system_prompt=system_prompt, enable_thinking=False)
 
         clean_response, word_suggestions = extract_word_suggestions(raw_response)
         messages.append({"role": "assistant", "content": clean_response})

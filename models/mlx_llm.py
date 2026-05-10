@@ -4,14 +4,19 @@ from typing import Iterator
 
 from models.base import BaseLLM
 
-_THINK_RE = re.compile(r"<think>.*?</think>\s*", re.DOTALL)
-_INCOMPLETE_THINK_RE = re.compile(r"<think>.*", re.DOTALL)
+# Qwen3 puts <think> in the prompt template, so the completion starts directly
+# with thinking content and ends with </think> before the actual response.
+# Pattern: strip from start-of-output to first </think> (covers both cases:
+# output starts with raw thinking OR with an explicit <think> tag).
+_THINK_COMPLETE_RE = re.compile(r"^.*?</think>\s*", re.DOTALL)
+# Fallback: explicit <think> in output with no closing tag (truncated by token limit)
+_THINK_INCOMPLETE_RE = re.compile(r"<think>.*", re.DOTALL)
 
 
 def _strip_thinking(text: str) -> str:
-    text = _THINK_RE.sub("", text)
-    text = _INCOMPLETE_THINK_RE.sub("", text)
-    return text.strip()
+    if "</think>" in text:
+        return _THINK_COMPLETE_RE.sub("", text, count=1).strip()
+    return _THINK_INCOMPLETE_RE.sub("", text).strip()
 
 
 class MLXLLMModel(BaseLLM):
