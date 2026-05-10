@@ -87,8 +87,8 @@ def render() -> None:
             st.write(result["response"])
             render_tts_button(result["response"], lang=target_lang, key="latest")
 
-        for suggestion in result.get("word_suggestions", []):
-            render_word_chip(suggestion, lang=target_lang, native_lang=native_lang)
+        for i, suggestion in enumerate(result.get("word_suggestions", [])):
+            render_word_chip(suggestion, lang=target_lang, native_lang=native_lang, idx=i)
 
         language_svc.update_streak(target_lang)
         st.rerun()

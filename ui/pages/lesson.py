@@ -91,8 +91,8 @@ def _render_active_lesson(lesson_svc, language_svc, target_lang, native_lang, le
             if msg["role"] == "assistant":
                 render_tts_button(msg["content"], lang=target_lang, key=msg["content"][:20])
 
-    for suggestion in lesson.get("word_suggestions", []):
-        render_word_chip(suggestion, lang=target_lang, native_lang=native_lang)
+    for i, suggestion in enumerate(lesson.get("word_suggestions", [])):
+        render_word_chip(suggestion, lang=target_lang, native_lang=native_lang, idx=i)
 
     user_input = st.chat_input("Your response...")
     if user_input:
