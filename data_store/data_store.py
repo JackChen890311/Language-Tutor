@@ -127,6 +127,13 @@ class DataStore:
         path = self._words_dir(lang) / "wordlist.json"
         path.write_text(json.dumps(words, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    # --- Data management ---
+
+    def clear_language_history(self, lang: str) -> None:
+        lang_dir = self.root / lang
+        if lang_dir.exists():
+            shutil.rmtree(lang_dir)
+
     # --- Lessons ---
 
     def _lessons_dir(self, lang: str) -> Path:

@@ -61,6 +61,7 @@ def render() -> None:
 
     if st.button("🎯 Take Level Test"):
         st.session_state._taking_test = True
+        st.rerun()
 
     if st.session_state.get("_taking_test"):
         _run_level_test(level_test_svc, current_target, language_svc)
@@ -91,3 +92,28 @@ def _run_level_test(level_test_svc, target_lang: str, language_svc) -> None:
         st.session_state._taking_test = False
         language_svc.update_streak(target_lang)
         st.rerun()
+
+    st.divider()
+    st.subheader("⚠️ Danger Zone")
+    st.caption(f"Permanently delete all chats, word list, lessons, and progress for **{current_target}**.")
+
+    if not st.session_state.get("_confirm_clear"):
+        if st.button("🗑️ Clear All History", type="secondary"):
+            st.session_state._confirm_clear = True
+            st.rerun()
+    else:
+        st.warning("This will delete **all** chat history, saved words, lesson notes, and level data for this language. This cannot be undone.")
+        col_yes, col_no = st.columns([1, 3])
+        with col_yes:
+            if st.button("Yes, delete everything", type="primary"):
+                store = get("store")
+                store.clear_language_history(current_target)
+                for key in ["_confirm_clear", "active_lesson", "suggested_topics",
+                            "test_questions", "test_answers", "_taking_test"]:
+                    st.session_state.pop(key, None)
+                st.success("All history cleared.")
+                st.rerun()
+        with col_no:
+            if st.button("Cancel"):
+                st.session_state._confirm_clear = False
+                st.rerun()
