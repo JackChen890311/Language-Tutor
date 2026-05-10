@@ -19,6 +19,7 @@ class LevelTestService:
         raw = llm.generate(
             [{"role": "user", "content": "Generate the test questions now."}],
             system_prompt=system_prompt,
+            enable_thinking=False,
         )
         raw = raw.strip()
         if raw.startswith("```"):

@@ -22,7 +22,8 @@ class LessonService:
             [{"role": "user", "content": (
                 f"{completed_note}Suggest {n} lesson topics for a {target_lang} learner "
                 f"at level {level}. Return a JSON array of topic name strings only."
-            )}]
+            )}],
+            enable_thinking=False,
         )
         raw = raw.strip()
         if raw.startswith("```"):

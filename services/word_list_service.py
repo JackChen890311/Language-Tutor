@@ -50,6 +50,7 @@ class WordListService:
         raw = llm.generate(
             [{"role": "user", "content": f"Word: {word}"}],
             system_prompt=system_prompt,
+            enable_thinking=False,
         )
         raw = raw.strip()
         if raw.startswith("```"):
