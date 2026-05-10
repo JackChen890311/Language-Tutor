@@ -27,10 +27,15 @@ def render() -> None:
         st.metric("📅 Last Active", stats["last_active"] or "Today")
     with col6:
         mm = get("mm")
-        vlm_ok = "✅" if mm.is_model_available("vlm") else "⬇️"
-        tts_ok = "✅" if mm.is_model_available("tts") else "⬇️"
-        stt_ok = "✅" if mm.is_model_available("stt") else "⬇️"
-        st.metric("Models", f"VLM {vlm_ok} TTS {tts_ok} STT {stt_ok}")
+        rows = [
+            ("📷 Vision", mm.is_model_available("vlm")),
+            ("🔊 Speech", mm.is_model_available("tts")),
+            ("🎤 Voice input", mm.is_model_available("stt")),
+        ]
+        ready = sum(ok for _, ok in rows)
+        st.metric("Optional Models", f"{ready} / {len(rows)} ready")
+        for label, ok in rows:
+            st.caption(f"{'✅' if ok else '⬇️'} {label}")
 
     st.divider()
 

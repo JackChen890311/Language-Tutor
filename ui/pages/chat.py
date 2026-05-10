@@ -1,7 +1,7 @@
 import tempfile
 import streamlit as st
 from ui.state import get
-from ui.components.word_chip import render_word_chip
+from ui.components.word_chip import render_word_chips
 from ui.components.audio_controls import render_tts_button, render_stt_input
 
 
@@ -87,8 +87,7 @@ def render() -> None:
             st.write(result["response"])
             render_tts_button(result["response"], lang=target_lang, key="latest")
 
-        for i, suggestion in enumerate(result.get("word_suggestions", [])):
-            render_word_chip(suggestion, lang=target_lang, native_lang=native_lang, idx=i)
+        render_word_chips(result.get("word_suggestions", []), lang=target_lang, native_lang=native_lang)
 
         language_svc.update_streak(target_lang)
         st.rerun()

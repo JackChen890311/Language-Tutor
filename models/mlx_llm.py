@@ -4,11 +4,14 @@ from typing import Iterator
 
 from models.base import BaseLLM
 
-_THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
+_THINK_RE = re.compile(r"<think>.*?</think>\s*", re.DOTALL)
+_INCOMPLETE_THINK_RE = re.compile(r"<think>.*", re.DOTALL)
 
 
 def _strip_thinking(text: str) -> str:
-    return _THINK_RE.sub("", text).strip()
+    text = _THINK_RE.sub("", text)
+    text = _INCOMPLETE_THINK_RE.sub("", text)
+    return text.strip()
 
 
 class MLXLLMModel(BaseLLM):
