@@ -47,8 +47,12 @@ def test_summarization_prompt():
 def test_lesson_prompt_includes_phase():
     pb = PromptBuilder()
     prompt = pb.lesson_system_prompt(
-        native_lang="zh-TW", target_lang="ja", level="N4",
-        topic="food", phase="structured", difficulty="Normal"
+        native_lang="zh-TW",
+        target_lang="ja",
+        level="N4",
+        topic="food",
+        phase="structured",
+        difficulty="Normal",
     )
     assert "food" in prompt
     assert "structured" in prompt or "vocabulary" in prompt.lower()
@@ -57,8 +61,12 @@ def test_lesson_prompt_includes_phase():
 def test_lesson_prompt_conversation_phase():
     pb = PromptBuilder()
     prompt = pb.lesson_system_prompt(
-        native_lang="zh-TW", target_lang="ja", level="N4",
-        topic="food", phase="conversation", difficulty="Hard"
+        native_lang="zh-TW",
+        target_lang="ja",
+        level="N4",
+        topic="food",
+        phase="conversation",
+        difficulty="Hard",
     )
     assert "conversation" in prompt.lower() or "free" in prompt.lower()
     assert "Hard" in prompt or "minimal" in prompt.lower()

@@ -33,12 +33,19 @@ def test_continue_lesson_structured(tmp_store, mock_llm):
     svc = _make_svc(tmp_store, mock_llm)
     lesson_id = "lesson-001"
     session_id = tmp_store.create_chat_session("ja", "Food Lesson", lesson_id=lesson_id)
-    tmp_store.save_chat_messages("ja", session_id, [
-        {"role": "assistant", "content": "Let's start."}
-    ])
+    tmp_store.save_chat_messages(
+        "ja", session_id, [{"role": "assistant", "content": "Let's start."}]
+    )
     result = svc.continue_lesson(
-        "ja", session_id, lesson_id, "zh-TW", "N4", "Food",
-        phase="structured", difficulty="Normal", user_text="I understand."
+        "ja",
+        session_id,
+        lesson_id,
+        "zh-TW",
+        "N4",
+        "Food",
+        phase="structured",
+        difficulty="Normal",
+        user_text="I understand.",
     )
     assert "response" in result
     assert "phase" in result

@@ -8,7 +8,9 @@ SUMMARIZE_COUNT = 20
 
 
 class MemoryService:
-    def __init__(self, store: DataStore, model_manager: ModelManager, prompt_builder: PromptBuilder):
+    def __init__(
+        self, store: DataStore, model_manager: ModelManager, prompt_builder: PromptBuilder
+    ):
         self._store = store
         self._mm = model_manager
         self._pb = prompt_builder
@@ -27,9 +29,7 @@ class MemoryService:
             return
         to_summarize = messages[:SUMMARIZE_COUNT]
         keep = messages[-FULL_WINDOW:]
-        conversation_text = "\n".join(
-            f"{m['role'].upper()}: {m['content']}" for m in to_summarize
-        )
+        conversation_text = "\n".join(f"{m['role'].upper()}: {m['content']}" for m in to_summarize)
         system_prompt = self._pb.summarization_prompt(native_lang)
         llm = self._mm.get_llm()
         summary = llm.generate(

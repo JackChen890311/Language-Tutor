@@ -56,12 +56,15 @@ def render() -> None:
                 render_tts_button(msg["content"], lang=target_lang, key=msg["content"][:20])
 
     uploaded_image = st.file_uploader(
-        "📷 Attach image (optional)", type=["jpg", "jpeg", "png"],
-        key=f"img_{active_session}", label_visibility="collapsed"
+        "📷 Attach image (optional)",
+        type=["jpg", "jpeg", "png"],
+        key=f"img_{active_session}",
+        label_visibility="collapsed",
     )
     image_path = None
     if uploaded_image:
         import os
+
         suffix = os.path.splitext(uploaded_image.name)[1]
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
             f.write(uploaded_image.getvalue())
@@ -94,7 +97,9 @@ def render() -> None:
             user_text=final_input,
             raw_response=collector.full_text,
         )
-        render_word_chips(result.get("word_suggestions", []), lang=target_lang, native_lang=native_lang)
+        render_word_chips(
+            result.get("word_suggestions", []), lang=target_lang, native_lang=native_lang
+        )
 
         language_svc.update_streak(target_lang)
         st.rerun()

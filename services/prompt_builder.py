@@ -41,7 +41,7 @@ class PromptBuilder:
             f"- Tone: encouraging and patient; corrections are matter-of-fact, never condescending\n"
             f"- When you introduce a single vocabulary word (not a phrase or sentence) "
             f"likely to be new at {level}, append exactly one marker per unique word:\n"
-            f"  <!--WORD_SUGGESTION:{{\"word\": \"<single word>\", \"reading\": \"<reading/pronunciation>\"}}-->\n"
+            f'  <!--WORD_SUGGESTION:{{"word": "<single word>", "reading": "<reading/pronunciation>"}}-->\n'
             f"  Do NOT repeat the same word marker twice.\n"
             f"{self._chinese_rule(native_lang)}"
         )
@@ -55,10 +55,10 @@ class PromptBuilder:
             f"Respond ONLY with a JSON array, no other text:\n"
             f"[\n"
             f"  {{\n"
-            f"    \"question\": \"...\",\n"
-            f"    \"options\": [\"A) ...\", \"B) ...\", \"C) ...\", \"D) ...\"],\n"
-            f"    \"correct\": \"A\",\n"
-            f"    \"explanation\": \"...\"\n"
+            f'    "question": "...",\n'
+            f'    "options": ["A) ...", "B) ...", "C) ...", "D) ..."],\n'
+            f'    "correct": "A",\n'
+            f'    "explanation": "..."\n'
             f"  }}\n"
             f"]\n"
         )
@@ -68,18 +68,18 @@ class PromptBuilder:
             f"You are a dictionary assistant for {self._lang_name(target_lang)}.\n\n"
             f"Given a word, return a JSON object with these exact fields:\n"
             f"{{\n"
-            f"  \"definition\": \"string\",\n"
-            f"  \"part_of_speech\": \"string\",\n"
-            f"  \"formality\": \"casual|neutral|formal\",\n"
-            f"  \"synonyms\": [\"string\"],\n"
-            f"  \"antonyms\": [\"string\"],\n"
-            f"  \"collocations\": [\"string\"],\n"
-            f"  \"conjugations\": {{}} or null,\n"
-            f"  \"tense_notes\": \"string\" or null,\n"
-            f"  \"examples\": [\"string\"],\n"
-            f"  \"grammar_notes\": \"string\",\n"
-            f"  \"proficiency_level\": \"string\",\n"
-            f"  \"language_specific\": {{}}\n"
+            f'  "definition": "string",\n'
+            f'  "part_of_speech": "string",\n'
+            f'  "formality": "casual|neutral|formal",\n'
+            f'  "synonyms": ["string"],\n'
+            f'  "antonyms": ["string"],\n'
+            f'  "collocations": ["string"],\n'
+            f'  "conjugations": {{}} or null,\n'
+            f'  "tense_notes": "string" or null,\n'
+            f'  "examples": ["string"],\n'
+            f'  "grammar_notes": "string",\n'
+            f'  "proficiency_level": "string",\n'
+            f'  "language_specific": {{}}\n'
             f"}}\n\n"
             f"All definitions, notes, and examples must be in {self._lang_name(native_lang)}. "
             f"Respond ONLY with the JSON object."
@@ -107,8 +107,8 @@ class PromptBuilder:
 
         if phase == "structured":
             phase_instructions = (
-                f"You are guiding a structured lesson on \"{topic}\". Follow this sequence:\n"
-                f"1. Introduce 5-8 key vocabulary items relevant to \"{topic}\"\n"
+                f'You are guiding a structured lesson on "{topic}". Follow this sequence:\n'
+                f'1. Introduce 5-8 key vocabulary items relevant to "{topic}"\n'
                 f"2. Explain one relevant grammar point\n"
                 f"3. Give the user 3 practice exercises (fill-in-the-blank or translation)\n"
                 f"4. After the exercises, invite the user to move to free conversation\n"
@@ -117,7 +117,7 @@ class PromptBuilder:
         else:
             phase_instructions = (
                 f"The structured lesson is complete. Now have a natural free conversation "
-                f"on the topic \"{topic}\".\n"
+                f'on the topic "{topic}".\n'
                 f"Encourage use of the vocabulary and grammar from the lesson.\n"
                 f"Gently correct mistakes as they occur.\n"
             )
@@ -132,7 +132,7 @@ class PromptBuilder:
             f"Always explain in {self._lang_name(native_lang)}. Practice in {self._lang_name(target_lang)}.\n"
             f"When you introduce a single vocabulary word (not a phrase or sentence) "
             f"likely to be new at {level}, append exactly one marker per unique word:\n"
-            f"<!--WORD_SUGGESTION:{{\"word\": \"<single word>\", \"reading\": \"<reading/pronunciation>\"}}-->\n"
+            f'<!--WORD_SUGGESTION:{{"word": "<single word>", "reading": "<reading/pronunciation>"}}-->\n'
             f"Do NOT repeat the same word marker twice.\n"
             f"{self._chinese_rule(native_lang)}"
         )

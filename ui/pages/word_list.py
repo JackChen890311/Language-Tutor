@@ -41,7 +41,9 @@ def _render_browse(word_svc, target_lang, native_lang) -> None:
         words = [w for w in words if tag_filter in w.get("tags", [])]
 
     for word in words:
-        with st.expander(f"**{word['word']}** {word.get('reading', '')} — {word.get('definition', '')}"):
+        with st.expander(
+            f"**{word['word']}** {word.get('reading', '')} — {word.get('definition', '')}"
+        ):
             col1, col2 = st.columns([3, 1])
             with col1:
                 st.write(f"**Part of speech:** {word.get('part_of_speech', '-')}")
@@ -59,11 +61,15 @@ def _render_browse(word_svc, target_lang, native_lang) -> None:
                     st.write(f"**Related:** {', '.join(word['related_words'])}")
                 conj = word.get("conjugations")
                 if conj:
-                    st.write("**Conjugations:** " + " · ".join(f"{k}: {v}" for k, v in conj.items()))
+                    st.write(
+                        "**Conjugations:** " + " · ".join(f"{k}: {v}" for k, v in conj.items())
+                    )
                 ls = word.get("language_specific", {})
                 if ls and any(v for v in ls.values() if v):
                     extras = {k: v for k, v in ls.items() if v}
-                    st.write("**Language info:** " + " · ".join(f"{k}: {v}" for k, v in extras.items()))
+                    st.write(
+                        "**Language info:** " + " · ".join(f"{k}: {v}" for k, v in extras.items())
+                    )
             with col2:
                 render_tts_button(word["word"], lang=target_lang, key=word["id"])
                 stats = word.get("review_stats", {})
@@ -83,8 +89,12 @@ def _render_add(word_svc, target_lang, native_lang) -> None:
         tags = [t.strip() for t in tags_input.split(",") if t.strip()]
         with st.spinner(f"Enriching '{word_input}'..."):
             entry = word_svc.add_word(
-                target_lang, native_lang, word_input,
-                reading=reading_input, source="manual", tags=tags
+                target_lang,
+                native_lang,
+                word_input,
+                reading=reading_input,
+                source="manual",
+                tags=tags,
             )
         st.success(f"Added: **{entry['word']}** — {entry.get('definition', '')}")
         st.rerun()
@@ -140,7 +150,11 @@ def _render_review(word_svc, target_lang, native_lang) -> None:
 
     elif mode == "Fill-in-the-blank":
         example = (word.get("examples") or [""])[0]
-        blanked = example.replace(word["word"], "______") if word["word"] in example else f"______ ({word.get('reading', '')})"
+        blanked = (
+            example.replace(word["word"], "______")
+            if word["word"] in example
+            else f"______ ({word.get('reading', '')})"
+        )
         st.write(f"Fill in the blank: **{blanked}**")
         answer = st.text_input("Your answer:", key=f"fib_{word['id']}_{idx}")
         if st.button("Check"):

@@ -2,8 +2,14 @@ import streamlit as st
 from ui.state import get
 
 _LANG_NAMES = {
-    "zh-TW": "Traditional Chinese", "zh": "Chinese", "ja": "Japanese",
-    "ko": "Korean", "en": "English", "es": "Spanish", "fr": "French", "de": "German",
+    "zh-TW": "Traditional Chinese",
+    "zh": "Chinese",
+    "ja": "Japanese",
+    "ko": "Korean",
+    "en": "English",
+    "es": "Spanish",
+    "fr": "French",
+    "de": "German",
 }
 
 
@@ -37,8 +43,7 @@ def render() -> None:
         ready = sum(mm.is_model_available(s) for _, s in slots)
         st.metric("Optional Models", f"{ready} / {len(slots)} ready")
         badges = ("&nbsp;" * 10).join(
-            f"{'✅' if mm.is_model_available(s) else '⬇️'} {e}"
-            for e, s in slots
+            f"{'✅' if mm.is_model_available(s) else '⬇️'} {e}" for e, s in slots
         )
         st.caption(badges)
 

@@ -15,10 +15,10 @@ class ModelManager:
 
     def is_model_available(self, slot: str) -> bool:
         import os
+
         model_id: str = self.config[slot]["model"]
-        hf_cache = (
-            os.environ.get("HF_HUB_CACHE")
-            or os.path.join(os.environ.get("HF_HOME", str(Path.home() / ".cache" / "huggingface")), "hub")
+        hf_cache = os.environ.get("HF_HUB_CACHE") or os.path.join(
+            os.environ.get("HF_HOME", str(Path.home() / ".cache" / "huggingface")), "hub"
         )
         cache_dir = Path(hf_cache)
         dir_name = "models--" + model_id.replace("/", "--")
@@ -31,24 +31,28 @@ class ModelManager:
     def get_llm(self) -> BaseLLM:
         if self._llm is None:
             from models.mlx_llm import MLXLLMModel
+
             self._llm = MLXLLMModel(self.config["llm"]["model"])
         return self._llm
 
     def get_vlm(self) -> BaseVLM:
         if self._vlm is None:
             from models.mlx_vlm import MLXVLMModel
+
             self._vlm = MLXVLMModel(self.config["vlm"]["model"])
         return self._vlm
 
     def get_tts(self) -> BaseTTS:
         if self._tts is None:
             from models.mlx_tts import MLXTTSModel
+
             self._tts = MLXTTSModel(self.config["tts"]["model"])
         return self._tts
 
     def get_stt(self) -> BaseSTT:
         if self._stt is None:
             from models.mlx_stt import WhisperModel
+
             self._stt = WhisperModel(self.config["stt"]["model"])
         return self._stt
 

@@ -11,6 +11,7 @@ class MLXTTSModel(BaseTTS):
     def _ensure_loaded(self) -> None:
         if self._pipeline is None:
             from mlx_audio.tts.models.kokoro import KokoroPipeline
+
             self._pipeline = KokoroPipeline(
                 lang_code="j",
                 model=True,
@@ -24,6 +25,7 @@ class MLXTTSModel(BaseTTS):
         import io
         import wave
         import numpy as np
+
         self._ensure_loaded()
         audio_chunks = []
         for _, _, audio in self._pipeline(text, voice="af_heart"):

@@ -1,7 +1,3 @@
-import pytest
-from data_store.data_store import DataStore
-
-
 def test_settings_round_trip(tmp_store):
     tmp_store.save_settings({"native_lang": "zh-TW", "target_lang": "ja"})
     result = tmp_store.load_settings()

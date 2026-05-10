@@ -12,20 +12,22 @@ def _make_svc(tmp_store, mock_llm):
 
 
 def _mock_questions():
-    return json.dumps([
-        {
-            "question": "What does 食べる mean?",
-            "options": ["A) to eat", "B) to drink", "C) to sleep", "D) to walk"],
-            "correct": "A",
-            "explanation": "食べる means to eat.",
-        },
-        {
-            "question": "Which particle marks the subject?",
-            "options": ["A) を", "B) に", "C) が", "D) で"],
-            "correct": "C",
-            "explanation": "が marks the subject.",
-        },
-    ])
+    return json.dumps(
+        [
+            {
+                "question": "What does 食べる mean?",
+                "options": ["A) to eat", "B) to drink", "C) to sleep", "D) to walk"],
+                "correct": "A",
+                "explanation": "食べる means to eat.",
+            },
+            {
+                "question": "Which particle marks the subject?",
+                "options": ["A) を", "B) に", "C) が", "D) で"],
+                "correct": "C",
+                "explanation": "が marks the subject.",
+            },
+        ]
+    )
 
 
 def test_generate_questions(tmp_store, mock_llm):

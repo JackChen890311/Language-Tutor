@@ -83,8 +83,12 @@ def main() -> None:
             badge = " 🔴" if name == "Word List" and has_stale else ""
             label = f"{emoji}  {name}{badge}"
             active = st.session_state.page == name
-            if st.button(label, key=f"nav_{name}", use_container_width=True,
-                         type="primary" if active else "secondary"):
+            if st.button(
+                label,
+                key=f"nav_{name}",
+                use_container_width=True,
+                type="primary" if active else "secondary",
+            ):
                 st.session_state.page = name
                 st.rerun()
 
@@ -92,18 +96,23 @@ def main() -> None:
 
     if page == "Home":
         from ui.pages import home
+
         home.render()
     elif page == "Lesson":
         from ui.pages import lesson
+
         lesson.render()
     elif page == "Chat":
         from ui.pages import chat
+
         chat.render()
     elif page == "Word List":
         from ui.pages import word_list
+
         word_list.render()
     elif page == "Settings":
         from ui.pages import settings
+
         settings.render()
 
 

@@ -1,5 +1,5 @@
 import json
-from datetime import date, timedelta
+from datetime import date
 from unittest.mock import MagicMock
 from services.word_list_service import WordListService
 from services.prompt_builder import PromptBuilder
@@ -13,20 +13,22 @@ def _make_svc(tmp_store, mock_llm):
 
 
 def _mock_enrichment():
-    return json.dumps({
-        "definition": "to eat",
-        "part_of_speech": "動詞",
-        "formality": "casual",
-        "synonyms": ["食う"],
-        "antonyms": [],
-        "collocations": ["ご飯を食べる"],
-        "conjugations": {"masu": "食べます", "te": "食べて"},
-        "tense_notes": "Group 2 verb",
-        "examples": ["毎日ご飯を食べる。"],
-        "grammar_notes": "Ichidan verb",
-        "proficiency_level": "N5",
-        "language_specific": {"on_yomi": None, "kun_yomi": "た.べる", "pitch_accent": "LHL"},
-    })
+    return json.dumps(
+        {
+            "definition": "to eat",
+            "part_of_speech": "動詞",
+            "formality": "casual",
+            "synonyms": ["食う"],
+            "antonyms": [],
+            "collocations": ["ご飯を食べる"],
+            "conjugations": {"masu": "食べます", "te": "食べて"},
+            "tense_notes": "Group 2 verb",
+            "examples": ["毎日ご飯を食べる。"],
+            "grammar_notes": "Ichidan verb",
+            "proficiency_level": "N5",
+            "language_specific": {"on_yomi": None, "kun_yomi": "た.べる", "pitch_accent": "LHL"},
+        }
+    )
 
 
 def test_add_word_enriches_and_saves(tmp_store, mock_llm):

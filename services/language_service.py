@@ -63,9 +63,11 @@ class LanguageService:
             "last_active": level_data.get("last_active", ""),
             "words_saved": len(words),
             "words_reviewed_this_week": sum(
-                1 for w in words
+                1
+                for w in words
                 if w.get("review_stats", {}).get("last_reviewed") is not None
-                and w["review_stats"]["last_reviewed"] >= (date.today() - timedelta(days=7)).isoformat()
+                and w["review_stats"]["last_reviewed"]
+                >= (date.today() - timedelta(days=7)).isoformat()
             ),
             "lessons_completed": len(lessons.get("completed", [])),
         }

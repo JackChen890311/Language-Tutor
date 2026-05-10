@@ -5,8 +5,7 @@ from services.prompt_builder import PromptBuilder
 
 def _make_messages(n: int) -> list[dict]:
     return [
-        {"role": "user" if i % 2 == 0 else "assistant", "content": f"msg {i}"}
-        for i in range(n)
+        {"role": "user" if i % 2 == 0 else "assistant", "content": f"msg {i}"} for i in range(n)
     ]
 
 

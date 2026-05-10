@@ -65,12 +65,14 @@ class DataStore:
     def create_chat_session(self, lang: str, name: str, lesson_id: str | None = None) -> str:
         session_id = uuid.uuid4().hex[:8]
         sessions = self.list_chat_sessions(lang)
-        sessions.append({
-            "id": session_id,
-            "name": name,
-            "created_at": datetime.now().isoformat(),
-            "lesson_id": lesson_id,
-        })
+        sessions.append(
+            {
+                "id": session_id,
+                "name": name,
+                "created_at": datetime.now().isoformat(),
+                "lesson_id": lesson_id,
+            }
+        )
         path = self._sessions_index_path(lang)
         path.write_text(json.dumps(sessions, ensure_ascii=False, indent=2), encoding="utf-8")
         return session_id

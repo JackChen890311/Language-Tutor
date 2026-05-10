@@ -28,9 +28,12 @@ class MLXLLMModel(BaseLLM):
     def _ensure_loaded(self) -> None:
         if self._model is None:
             from mlx_lm import load
+
             self._model, self._tokenizer = load(self._model_path)
 
-    def _build_prompt(self, messages: list[dict], system_prompt: str, enable_thinking: bool = True) -> str:
+    def _build_prompt(
+        self, messages: list[dict], system_prompt: str, enable_thinking: bool = True
+    ) -> str:
         self._ensure_loaded()
         all_messages = []
         if system_prompt:
@@ -38,27 +41,37 @@ class MLXLLMModel(BaseLLM):
         all_messages.extend(messages)
         try:
             return self._tokenizer.apply_chat_template(
-                all_messages, tokenize=False, add_generation_prompt=True,
+                all_messages,
+                tokenize=False,
+                add_generation_prompt=True,
                 enable_thinking=enable_thinking,
             )
         except TypeError:
             # Tokenizer doesn't support enable_thinking (non-Qwen3 model)
             return self._tokenizer.apply_chat_template(
-                all_messages, tokenize=False, add_generation_prompt=True,
+                all_messages,
+                tokenize=False,
+                add_generation_prompt=True,
             )
 
     def load(self) -> None:
         self._ensure_loaded()
 
-    def generate(self, messages: list[dict], system_prompt: str = "", enable_thinking: bool = True) -> str:
+    def generate(
+        self, messages: list[dict], system_prompt: str = "", enable_thinking: bool = True
+    ) -> str:
         from mlx_lm import generate
+
         self._ensure_loaded()
         prompt = self._build_prompt(messages, system_prompt, enable_thinking=enable_thinking)
         raw = generate(self._model, self._tokenizer, prompt=prompt, max_tokens=8192, verbose=False)
         return _strip_thinking(raw)
 
-    def stream(self, messages: list[dict], system_prompt: str = "", enable_thinking: bool = True) -> Iterator[str]:
+    def stream(
+        self, messages: list[dict], system_prompt: str = "", enable_thinking: bool = True
+    ) -> Iterator[str]:
         from mlx_lm import stream_generate
+
         self._ensure_loaded()
         prompt = self._build_prompt(messages, system_prompt, enable_thinking=enable_thinking)
         buffer = []

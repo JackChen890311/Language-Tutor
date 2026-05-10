@@ -28,10 +28,7 @@ def render_word_chips(suggestions: list[dict], lang: str, native_lang: str) -> N
         with cols[i % 3]:
             reading_html = f'<div class="reading">{reading}</div>' if reading else ""
             st.markdown(
-                f'<div class="word-chip">'
-                f'<div class="word">{word}</div>'
-                f'{reading_html}'
-                f'</div>',
+                f'<div class="word-chip"><div class="word">{word}</div>{reading_html}</div>',
                 unsafe_allow_html=True,
             )
             if st.button("💾 Save", key=f"save_word_{i}_{word}", use_container_width=True):

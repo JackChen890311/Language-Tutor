@@ -8,7 +8,9 @@ from services.prompt_builder import PromptBuilder
 
 
 class LevelTestService:
-    def __init__(self, store: DataStore, model_manager: ModelManager, prompt_builder: PromptBuilder):
+    def __init__(
+        self, store: DataStore, model_manager: ModelManager, prompt_builder: PromptBuilder
+    ):
         self._store = store
         self._mm = model_manager
         self._pb = prompt_builder

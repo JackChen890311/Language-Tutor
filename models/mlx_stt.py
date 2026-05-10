@@ -11,13 +11,16 @@ class WhisperModel(BaseSTT):
     def _ensure_loaded(self) -> None:
         if self._model is None:
             import mlx_whisper
+
             self._model = mlx_whisper
 
     def load(self) -> None:
         self._ensure_loaded()
 
     def transcribe(self, audio: str | bytes) -> str:
-        import os, tempfile
+        import os
+        import tempfile
+
         self._ensure_loaded()
         tmp_path = None
         try:

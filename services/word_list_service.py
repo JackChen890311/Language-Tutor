@@ -10,7 +10,9 @@ STALE_DAYS = 7
 
 
 class WordListService:
-    def __init__(self, store: DataStore, model_manager: ModelManager, prompt_builder: PromptBuilder):
+    def __init__(
+        self, store: DataStore, model_manager: ModelManager, prompt_builder: PromptBuilder
+    ):
         self._store = store
         self._mm = model_manager
         self._pb = prompt_builder
@@ -86,7 +88,8 @@ class WordListService:
         words = self._store.load_wordlist(lang)
         cutoff = (date.today() - timedelta(days=STALE_DAYS)).isoformat()
         return [
-            w for w in words
+            w
+            for w in words
             if (last := w.get("review_stats", {}).get("last_reviewed")) is None or last < cutoff
         ]
 
@@ -97,7 +100,9 @@ class WordListService:
         words = self._store.load_wordlist(lang)
         for w in words:
             if w["id"] == word_id:
-                stats = w.setdefault("review_stats", {"last_reviewed": None, "correct": 0, "incorrect": 0})
+                stats = w.setdefault(
+                    "review_stats", {"last_reviewed": None, "correct": 0, "incorrect": 0}
+                )
                 stats["last_reviewed"] = date.today().isoformat()
                 if correct:
                     stats["correct"] = stats.get("correct", 0) + 1

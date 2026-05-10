@@ -36,8 +36,8 @@ class StreamCollector:
                 end = buf.find("-->")
                 if end == -1:
                     break  # incomplete marker — wait for more tokens
-                chunk = buf[:end + 3]
-                buf = buf[end + 3:]
+                chunk = buf[: end + 3]
+                buf = buf[end + 3 :]
                 if "WORD_SUGGESTION:" not in chunk:
                     yield chunk
         if buf:
@@ -133,15 +133,21 @@ class ChatService:
     ) -> StreamCollector:
         context = self._memory.assemble_context(lang, session_id)
         context.append({"role": "user", "content": user_text})
-        system_prompt = self._pb.chat_system_prompt(native_lang=native_lang, target_lang=lang, level=level)
+        system_prompt = self._pb.chat_system_prompt(
+            native_lang=native_lang, target_lang=lang, level=level
+        )
         if image_path:
             vlm = self._mm.get_vlm()
             raw = vlm.generate(context, image=image_path, system_prompt=system_prompt)
+
             def _wrap(t: str) -> Iterator[str]:
                 yield t
+
             return StreamCollector(_wrap(raw))
         llm = self._mm.get_llm()
-        return StreamCollector(llm.stream(context, system_prompt=system_prompt, enable_thinking=False))
+        return StreamCollector(
+            llm.stream(context, system_prompt=system_prompt, enable_thinking=False)
+        )
 
     def commit_message(
         self,

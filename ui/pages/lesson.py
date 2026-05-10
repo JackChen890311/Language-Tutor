@@ -24,9 +24,7 @@ def render() -> None:
 def _render_topic_picker(lesson_svc, target_lang, native_lang, level) -> None:
     st.subheader("Choose a topic")
 
-    difficulty = st.select_slider(
-        "Difficulty", options=["Easy", "Normal", "Hard"], value="Normal"
-    )
+    difficulty = st.select_slider("Difficulty", options=["Easy", "Normal", "Hard"], value="Normal")
 
     col1, col2 = st.columns([3, 1])
     with col1:
@@ -55,7 +53,9 @@ def _start_lesson(lesson_svc, target_lang, native_lang, level, topic, difficulty
     )
     with st.chat_message("assistant"):
         stream_with_thinking(collector)
-    result = lesson_svc.commit_start_lesson(target_lang, session_id, lesson_id, topic, collector.full_text)
+    result = lesson_svc.commit_start_lesson(
+        target_lang, session_id, lesson_id, topic, collector.full_text
+    )
     st.session_state.active_lesson = {
         "lesson_id": lesson_id,
         "session_id": session_id,
