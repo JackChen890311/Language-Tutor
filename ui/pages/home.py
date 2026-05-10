@@ -36,7 +36,7 @@ def render() -> None:
         slots = [("📷", "vlm"), ("🔊", "tts"), ("🎤", "stt")]
         ready = sum(mm.is_model_available(s) for _, s in slots)
         st.metric("Optional Models", f"{ready} / {len(slots)} ready")
-        badges = " · ".join(
+        badges = ("&nbsp;" * 10).join(
             f"{'✅' if mm.is_model_available(s) else '⬇️'} {e}"
             for e, s in slots
         )

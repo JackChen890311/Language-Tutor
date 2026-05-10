@@ -51,7 +51,7 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"]:hover {
 
 
 def main() -> None:
-    st.set_page_config(page_title="Language Tutor 🗣️", page_icon="🗣️", layout="wide")
+    st.set_page_config(page_title="Language Tutor", page_icon="🗣️", layout="wide")
     st.markdown(_SIDEBAR_CSS, unsafe_allow_html=True)
     init_services()
 
