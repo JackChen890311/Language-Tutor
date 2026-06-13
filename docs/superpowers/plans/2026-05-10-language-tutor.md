@@ -634,7 +634,7 @@ class ModelManager:
 
     def get_download_command(self, slot: str) -> str:
         model_id: str = self.config[slot]["model"]
-        return f"huggingface-cli download {model_id}"
+        return f"hfdownload {model_id}"
 
     def get_llm(self) -> BaseLLM:
         if self._llm is None:

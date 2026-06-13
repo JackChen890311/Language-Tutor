@@ -259,7 +259,7 @@ No full spaced repetition in v1. A simple 7-day nudge:
 A `ModelManager` class runs on every app startup and checks whether each configured model is available locally (by verifying the expected mlx-community cache path).
 
 **Startup flow:**
-1. Check LLM — if missing, block app launch and show setup screen with the exact download command (e.g., `huggingface-cli download mlx-community/Qwen3.6-35B-A3B-4bit`)
+1. Check LLM — if missing, block app launch and show setup screen with the exact download command (e.g., `hfdownload mlx-community/Qwen3.6-35B-A3B-4bit`)
 2. Check VLM, TTS, STT — if missing, mark as unavailable but do not block launch; features that depend on them show a "Model not downloaded" prompt with the download command when triggered
 3. Once LLM is confirmed present, load `settings.json` (create with defaults if first run) and proceed to main UI
 

@@ -55,7 +55,7 @@ uv sync
 ### 2. Download the LLM (required)
 
 ```bash
-huggingface-cli download mlx-community/Qwen3.6-35B-A3B-4bit
+hfdownload mlx-community/Qwen3.6-35B-A3B-4bit
 ```
 
 The LLM is the only required model. The others (VLM, TTS, STT) are optional and can be downloaded later from the Settings page.
@@ -76,9 +76,9 @@ Download any of these from **Settings → Model Status** to unlock additional fe
 
 | Feature | Model | Command |
 |---|---|---|
-| Image chat (VLM) | `mlx-community/Qwen3-VL-8B-Instruct` | `huggingface-cli download mlx-community/Qwen3-VL-8B-Instruct` |
-| TTS playback | `kokoro` | `huggingface-cli download prince-canuma/Kokoro-82M` |
-| Voice input (STT) | `whisper-large-v3` | `huggingface-cli download mlx-community/whisper-large-v3` |
+| Image chat (VLM) | `mlx-community/Qwen3-VL-8B-Instruct` | `hfdownload mlx-community/Qwen3-VL-8B-Instruct` |
+| TTS playback | `kokoro` | `hfdownload prince-canuma/Kokoro-82M` |
+| Voice input (STT) | `whisper-large-v3` | `hfdownload mlx-community/whisper-large-v3` |
 
 ---
 
