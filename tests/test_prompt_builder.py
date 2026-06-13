@@ -70,3 +70,21 @@ def test_lesson_prompt_conversation_phase():
     )
     assert "conversation" in prompt.lower() or "free" in prompt.lower()
     assert "Hard" in prompt or "minimal" in prompt.lower()
+
+
+def test_chat_prompt_includes_speak_tag_instruction():
+    pb = PromptBuilder()
+    prompt = pb.chat_system_prompt(native_lang="zh-TW", target_lang="ja", level="N4")
+    assert "<speak>" in prompt
+
+
+def test_lesson_prompt_includes_speak_tag_instruction():
+    pb = PromptBuilder()
+    prompt = pb.lesson_system_prompt(
+        native_lang="zh-TW",
+        target_lang="ja",
+        level="N4",
+        topic="food",
+        phase="structured",
+    )
+    assert "<speak>" in prompt

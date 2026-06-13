@@ -2,7 +2,7 @@ import tempfile
 import streamlit as st
 from ui.state import get
 from ui.components.word_chip import render_word_chips
-from ui.components.audio_controls import render_tts_button, render_stt_input
+from ui.components.audio_controls import render_tts_button, render_message_with_tts, render_stt_input
 from ui.components.stream_display import stream_with_thinking
 
 
@@ -51,9 +51,10 @@ def render() -> None:
     messages = chat_svc.get_history(target_lang, active_session)
     for msg in messages:
         with st.chat_message(msg["role"]):
-            st.write(msg["content"])
             if msg["role"] == "assistant":
-                render_tts_button(msg["content"], lang=target_lang, key=msg["content"][:20])
+                render_message_with_tts(msg["content"], lang=target_lang, key=msg["content"][:20])
+            else:
+                st.write(msg["content"])
 
     uploaded_image = st.file_uploader(
         "📷 Attach image (optional)",
@@ -88,7 +89,7 @@ def render() -> None:
         )
         with st.chat_message("assistant"):
             stream_with_thinking(collector)
-            render_tts_button(collector.full_text, lang=target_lang, key="latest")
+            render_message_with_tts(collector.full_text, lang=target_lang, key="latest")
 
         result = chat_svc.commit_message(
             lang=target_lang,
