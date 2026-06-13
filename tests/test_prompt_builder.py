@@ -35,6 +35,7 @@ def test_word_enrichment_prompt():
     prompt = pb.word_enrichment_prompt(target_lang="ja", native_lang="zh-TW")
     assert "JSON" in prompt
     assert "definition" in prompt
+    assert "translation" in prompt
 
 
 def test_summarization_prompt():

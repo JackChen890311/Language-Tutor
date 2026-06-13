@@ -1,6 +1,6 @@
 import streamlit as st
 from ui.state import get
-from ui.components.audio_controls import render_tts_button
+from ui.components.audio_controls import render_tts_button, autoplay_audio_html
 
 
 def render() -> None:
@@ -40,12 +40,32 @@ def _render_browse(word_svc, target_lang, native_lang) -> None:
     if tag_filter != "All":
         words = [w for w in words if tag_filter in w.get("tags", [])]
 
+    mm = get("mm")
+    tts_available = mm.is_model_available("tts")
+
     for word in words:
-        with st.expander(
-            f"**{word['word']}** {word.get('reading', '')} — {word.get('definition', '')}"
-        ):
+        translation = word.get("translation", "")
+        header = f"**{word['word']}** {word.get('reading', '')}"
+        if translation:
+            header += f" — {translation}"
+        with st.expander(header):
+            # Word + audio button row
+            word_col, audio_col = st.columns([8, 1])
+            with word_col:
+                st.markdown(f"### {word['word']} {word.get('reading', '')}")
+                if translation:
+                    st.markdown(f"**{translation}**")
+            with audio_col:
+                if tts_available and st.button("🔊", key=f"tts_{word['id']}", help="Play audio"):
+                    with st.spinner(""):
+                        tts = mm.get_tts()
+                        audio_bytes = tts.synthesize(word["word"], lang=target_lang)
+                    st.html(autoplay_audio_html(audio_bytes))
+
+            st.divider()
             col1, col2 = st.columns([3, 1])
             with col1:
+                st.write(f"**Definition:** {word.get('definition', '-')}")
                 st.write(f"**Part of speech:** {word.get('part_of_speech', '-')}")
                 st.write(f"**Formality:** {word.get('formality', '-')}")
                 st.write(f"**Level:** {word.get('proficiency_level', '-')}")
@@ -71,7 +91,6 @@ def _render_browse(word_svc, target_lang, native_lang) -> None:
                         "**Language info:** " + " · ".join(f"{k}: {v}" for k, v in extras.items())
                     )
             with col2:
-                render_tts_button(word["word"], lang=target_lang, key=word["id"])
                 stats = word.get("review_stats", {})
                 st.caption(
                     f"✅ {stats.get('correct', 0)} / ❌ {stats.get('incorrect', 0)}\n"
@@ -129,9 +148,19 @@ def _render_review(word_svc, target_lang, native_lang) -> None:
     st.progress((idx) / len(queue), text=f"{idx}/{len(queue)}")
 
     if mode == "Flashcard":
-        st.markdown(f"## {word['word']} {word.get('reading', '')}")
-        render_tts_button(word["word"], lang=target_lang, key=f"rev_{word['id']}")
+        word_col, audio_col = st.columns([8, 1])
+        with word_col:
+            st.markdown(f"## {word['word']} {word.get('reading', '')}")
+        with audio_col:
+            mm = get("mm")
+            if mm.is_model_available("tts") and st.button("🔊", key=f"rev_tts_{word['id']}"):
+                with st.spinner(""):
+                    tts = mm.get_tts()
+                    audio_bytes = tts.synthesize(word["word"], lang=target_lang)
+                st.html(autoplay_audio_html(audio_bytes))
         if st.session_state.review_revealed:
+            if word.get("translation"):
+                st.markdown(f"### {word['translation']}")
             st.write(f"**{word.get('definition', '')}**")
             st.write(word.get("grammar_notes", ""))
             col1, col2 = st.columns(2)

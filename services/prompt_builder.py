@@ -71,6 +71,7 @@ class PromptBuilder:
             f"You are a dictionary assistant for {self._lang_name(target_lang)}.\n\n"
             f"Given a word, return a JSON object with these exact fields:\n"
             f"{{\n"
+            f'  "translation": "string (concise 1-5 word {self._lang_name(native_lang)} translation)",\n'
             f'  "definition": "string",\n'
             f'  "part_of_speech": "string",\n'
             f'  "formality": "casual|neutral|formal",\n'
