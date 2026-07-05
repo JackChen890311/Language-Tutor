@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock
-from services.chat_service import ChatService, extract_word_suggestions
+from services.chat_service import ChatService, StreamCollector, extract_word_suggestions
 from services.memory_service import MemoryService
 from services.prompt_builder import PromptBuilder
 
@@ -24,6 +24,22 @@ def test_extract_word_suggestions_none():
     clean, suggestions = extract_word_suggestions("No suggestions here")
     assert suggestions == []
     assert clean == "No suggestions here"
+
+
+def test_extract_word_suggestions_tolerates_misspelled_marker():
+    text = 'コーラ<!--WORD_SUGGETION:{"word": "コーラ", "reading": "こーら"}--> (こーら)'
+    clean, suggestions = extract_word_suggestions(text)
+    assert len(suggestions) == 1
+    assert suggestions[0]["word"] == "コーラ"
+    assert "<!--" not in clean
+
+
+def test_stream_collector_hides_misspelled_marker_from_live_output():
+    text = 'コーラ<!--WORD_SUGGETION:{"word": "コーラ", "reading": "こーら"}--> (こーら)'
+    collector = StreamCollector(iter([text]))
+    displayed = "".join(collector)
+    assert "<!--" not in displayed
+    assert "WORD_SUGGE" not in displayed
 
 
 def test_send_message_returns_response(tmp_store, mock_llm):

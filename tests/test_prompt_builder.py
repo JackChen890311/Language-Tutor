@@ -21,6 +21,19 @@ def test_chat_prompt_english_native_no_chinese_rule():
     assert "台灣" not in prompt
 
 
+def test_chat_prompt_japanese_target_includes_furigana_rule():
+    pb = PromptBuilder()
+    prompt = pb.chat_system_prompt(native_lang="en", target_lang="ja")
+    assert "漢字" in prompt
+    assert "hiragana" in prompt.lower()
+
+
+def test_chat_prompt_non_japanese_target_no_furigana_rule():
+    pb = PromptBuilder()
+    prompt = pb.chat_system_prompt(native_lang="en", target_lang="es")
+    assert "漢字" not in prompt
+
+
 def test_test_prompt_includes_target_lang():
     pb = PromptBuilder()
     prompt = pb.test_system_prompt(
@@ -132,3 +145,28 @@ def test_lesson_prompt_includes_speak_tag_instruction():
         difficulty="N3",
     )
     assert "<speak>" in prompt
+
+
+def test_lesson_prompt_japanese_target_includes_furigana_rule():
+    pb = PromptBuilder()
+    prompt = pb.lesson_system_prompt(
+        native_lang="zh-TW",
+        target_lang="ja",
+        topic="food",
+        phase="structured",
+        difficulty="N3",
+    )
+    assert "漢字" in prompt
+    assert "hiragana" in prompt.lower()
+
+
+def test_lesson_prompt_non_japanese_target_no_furigana_rule():
+    pb = PromptBuilder()
+    prompt = pb.lesson_system_prompt(
+        native_lang="en",
+        target_lang="ko",
+        topic="food",
+        phase="structured",
+        difficulty="TOPIK3",
+    )
+    assert "漢字" not in prompt

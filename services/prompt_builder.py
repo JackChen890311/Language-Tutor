@@ -33,6 +33,16 @@ class PromptBuilder:
             )
         return ""
 
+    def _furigana_rule(self, target_lang: str) -> str:
+        if target_lang == "ja":
+            return (
+                "- Whenever you write a word containing kanji (漢字) in Japanese text, "
+                "immediately follow it with its reading in hiragana in parentheses, e.g. "
+                "食べる(たべる). Do this for every kanji word, not just newly introduced "
+                "vocabulary.\n"
+            )
+        return ""
+
     def chat_system_prompt(self, native_lang: str, target_lang: str) -> str:
         return (
             f"You are a patient and encouraging language tutor.\n\n"
@@ -51,6 +61,7 @@ class PromptBuilder:
             f"likely to be new to a learner, append exactly one marker per unique word:\n"
             f'  <!--WORD_SUGGESTION:{{"word": "<single word>", "reading": "<reading/pronunciation>"}}-->\n'
             f"  Do NOT repeat the same word marker twice.\n"
+            f"{self._furigana_rule(target_lang)}"
             f"{self._chinese_rule(native_lang)}"
         )
 
@@ -153,5 +164,6 @@ class PromptBuilder:
             f"likely to be new to a learner, append exactly one marker per unique word:\n"
             f'<!--WORD_SUGGESTION:{{"word": "<single word>", "reading": "<reading/pronunciation>"}}-->\n'
             f"Do NOT repeat the same word marker twice.\n"
+            f"{self._furigana_rule(target_lang)}"
             f"{self._chinese_rule(native_lang)}"
         )

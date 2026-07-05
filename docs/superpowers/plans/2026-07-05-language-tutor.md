@@ -2124,3 +2124,20 @@ See `docs/superpowers/specs/2026-07-05-language-tutor-design.md` (final section)
 - [x] **Step 8:** Run full test suite — 81 passed (4 new); `make lint`/`make format` clean (same 2 pre-existing unrelated warnings)
 - [x] **Step 9:** Commit — `feat: add fine-grained per-language difficulty levels to Lesson and Test` (this update)
 - [x] **Step 10:** Push
+
+---
+
+## Fix: misspelled WORD_SUGGESTION marker leaked into text; add furigana for all kanji
+
+See `docs/superpowers/specs/2026-07-05-language-tutor-design.md` (final section) for the root-cause writeup.
+
+**Files:** `services/chat_service.py`, `services/prompt_builder.py`, `tests/test_chat_service.py`, `tests/test_prompt_builder.py`
+
+- [x] **Step 1:** Diagnose — user reported `コーラ<!--WORD_SUGGETION:{"word": "コーラ", "reading": "こーら"}--> (こーら)` rendering literally in Lesson. The model occasionally misspells `WORD_SUGGESTION` as `WORD_SUGGETION` in its output; `services/chat_service.py`'s `_WORD_SUGGESTION_RE` (used by `extract_word_suggestions`) and `StreamCollector.__iter__`'s literal `"WORD_SUGGESTION:" not in chunk` check both required an exact match, so the typo'd marker was never stripped
+- [x] **Step 2:** Loosen `_WORD_SUGGESTION_RE` to `r"<!--WORD_SUGGE\w*:(.*?)-->"` (matches any spelling variant sharing the `WORD_SUGGE` prefix); replace `StreamCollector`'s ad-hoc substring check with `_WORD_SUGGESTION_RE.search(chunk)` so both code paths share one regex
+- [x] **Step 3:** Add `PromptBuilder._furigana_rule(target_lang)` — for `target_lang == "ja"`, instructs the model to follow every kanji word with its hiragana reading in parentheses, not just newly-introduced vocabulary (the WORD_SUGGESTION mechanism only covers "new" words). Wired into both `chat_system_prompt` and `lesson_system_prompt`; no-op for non-Japanese targets
+- [x] **Step 4:** Add tests — `test_extract_word_suggestions_tolerates_misspelled_marker`, `test_stream_collector_hides_misspelled_marker_from_live_output` (reproducing the exact reported text), `test_chat_prompt_japanese_target_includes_furigana_rule`/`test_lesson_prompt_japanese_target_includes_furigana_rule` and their `_no_furigana_rule` non-Japanese counterparts
+- [x] **Step 5:** Verify by reproducing the exact reported string through `extract_word_suggestions` and `StreamCollector` directly — both now clean it to `コーラ (こーら)` with the suggestion still extracted; confirmed the furigana instruction line appears in both system prompts for `target_lang="ja"` and is absent for `target_lang="es"`
+- [x] **Step 6:** Run full test suite — 87 passed (6 new); `make lint`/`make format` clean (same 2 pre-existing unrelated warnings)
+- [x] **Step 7:** Commit — `fix: tolerate misspelled WORD_SUGGESTION marker; add furigana for all kanji` (this update)
+- [x] **Step 8:** Push

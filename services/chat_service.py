@@ -7,7 +7,7 @@ from model_manager import ModelManager
 from services.memory_service import MemoryService
 from services.prompt_builder import PromptBuilder
 
-_WORD_SUGGESTION_RE = re.compile(r"<!--WORD_SUGGESTION:(.*?)-->", re.DOTALL)
+_WORD_SUGGESTION_RE = re.compile(r"<!--WORD_SUGGE\w*:(.*?)-->", re.DOTALL)
 
 
 class StreamCollector:
@@ -38,7 +38,7 @@ class StreamCollector:
                     break  # incomplete marker — wait for more tokens
                 chunk = buf[: end + 3]
                 buf = buf[end + 3 :]
-                if "WORD_SUGGESTION:" not in chunk:
+                if not _WORD_SUGGESTION_RE.search(chunk):
                     yield chunk
         if buf:
             m = buf.find("<!--")
