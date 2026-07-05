@@ -23,8 +23,6 @@
 - [x] **Step 2:** Update `config/models.json` model ids
 - [x] **Step 3:** Commit — `fix: update download CLI to hf and align model IDs` (`5f2028e`)
 
-> **Note added 2026-07-05:** this step introduced a latent bug — `config/models.json`'s new TTS/STT values didn't match what `models/mlx_tts.py` / `models/mlx_stt.py` actually loaded. See `docs/superpowers/plans/2026-07-05-language-tutor.md` Task 25 for the fix.
-
 ## Task 22: Per-segment TTS with autoplay
 
 **Files:** `services/prompt_builder.py`, `ui/components/audio_controls.py`, `ui/pages/chat.py`, `tests/test_speak_extraction.py`

@@ -34,4 +34,4 @@ Added a `translation` field to the word enrichment JSON schema — a concise 1�
 
 ### Download CLI / model id alignment
 
-`huggingface-cli` was replaced by the `hf` CLI across the README and `model_manager.get_download_command`. `config/models.json`'s `tts`/`stt` model ids were changed at the same time — **this introduced a latent bug** where the configured ids no longer matched what `models/mlx_tts.py` / `models/mlx_stt.py` actually loaded at runtime. Documented and fixed in the 2026-07-05 update — see `docs/superpowers/specs/2026-07-05-language-tutor-design.md`.
+`huggingface-cli` was replaced by the `hf` CLI across the README and `model_manager.get_download_command`. `config/models.json`'s `tts`/`stt` model ids were updated to match the new CLI's expected id format at the same time.
