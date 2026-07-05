@@ -3,28 +3,27 @@ from services.prompt_builder import PromptBuilder
 
 def test_chat_prompt_includes_languages():
     pb = PromptBuilder()
-    prompt = pb.chat_system_prompt(native_lang="zh-TW", target_lang="ja", level="N4")
+    prompt = pb.chat_system_prompt(native_lang="zh-TW", target_lang="ja")
     assert "zh-TW" in prompt or "Traditional Chinese" in prompt
     assert "ja" in prompt or "Japanese" in prompt
-    assert "N4" in prompt
 
 
 def test_chat_prompt_chinese_native_includes_traditional_chinese_rule():
     pb = PromptBuilder()
-    prompt = pb.chat_system_prompt(native_lang="zh-TW", target_lang="ja", level="N4")
+    prompt = pb.chat_system_prompt(native_lang="zh-TW", target_lang="ja")
     assert "繁體中文" in prompt or "Traditional Chinese" in prompt
     assert "台灣" in prompt
 
 
 def test_chat_prompt_english_native_no_chinese_rule():
     pb = PromptBuilder()
-    prompt = pb.chat_system_prompt(native_lang="en", target_lang="ja", level="N4")
+    prompt = pb.chat_system_prompt(native_lang="en", target_lang="ja")
     assert "台灣" not in prompt
 
 
-def test_level_test_prompt_includes_target_lang():
+def test_test_prompt_includes_target_lang():
     pb = PromptBuilder()
-    prompt = pb.level_test_system_prompt(target_lang="ja", n_questions=5)
+    prompt = pb.test_system_prompt(target_lang="ja", n_questions=5)
     assert "ja" in prompt or "Japanese" in prompt
     assert "5" in prompt
     assert "JSON" in prompt
@@ -50,7 +49,6 @@ def test_lesson_prompt_includes_phase():
     prompt = pb.lesson_system_prompt(
         native_lang="zh-TW",
         target_lang="ja",
-        level="N4",
         topic="food",
         phase="structured",
         difficulty="Normal",
@@ -64,7 +62,6 @@ def test_lesson_prompt_conversation_phase():
     prompt = pb.lesson_system_prompt(
         native_lang="zh-TW",
         target_lang="ja",
-        level="N4",
         topic="food",
         phase="conversation",
         difficulty="Hard",
@@ -75,7 +72,7 @@ def test_lesson_prompt_conversation_phase():
 
 def test_chat_prompt_includes_speak_tag_instruction():
     pb = PromptBuilder()
-    prompt = pb.chat_system_prompt(native_lang="zh-TW", target_lang="ja", level="N4")
+    prompt = pb.chat_system_prompt(native_lang="zh-TW", target_lang="ja")
     assert "<speak>" in prompt
 
 
@@ -84,7 +81,6 @@ def test_lesson_prompt_includes_speak_tag_instruction():
     prompt = pb.lesson_system_prompt(
         native_lang="zh-TW",
         target_lang="ja",
-        level="N4",
         topic="food",
         phase="structured",
     )

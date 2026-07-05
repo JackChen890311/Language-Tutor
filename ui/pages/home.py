@@ -22,7 +22,7 @@ def render() -> None:
     language_svc.update_streak(target_lang)
     stats = language_svc.get_stats(target_lang)
 
-    st.subheader(f"Learning **{target_name}** · {stats['level'] or 'Level not set'}")
+    st.subheader(f"Learning **{target_name}**")
 
     col1, col2, col3 = st.columns(3)
     col4, col5, col6 = st.columns(3)

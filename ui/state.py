@@ -7,7 +7,7 @@ from services.memory_service import MemoryService
 from services.chat_service import ChatService
 from services.word_list_service import WordListService
 from services.lesson_service import LessonService
-from services.level_test_service import LevelTestService
+from services.quiz_service import QuizService
 
 
 def init_services() -> None:
@@ -24,7 +24,7 @@ def init_services() -> None:
     st.session_state.chat_svc = ChatService(store, mm, pb, memory_svc)
     st.session_state.word_svc = WordListService(store, mm, pb)
     st.session_state.lesson_svc = LessonService(store, mm, pb)
-    st.session_state.level_test_svc = LevelTestService(store, mm, pb)
+    st.session_state.quiz_svc = QuizService(mm, pb)
 
 
 def get(key: str):

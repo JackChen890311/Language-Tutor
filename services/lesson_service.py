@@ -15,7 +15,7 @@ class LessonService:
         self._mm = model_manager
         self._pb = prompt_builder
 
-    def suggest_topics(self, target_lang: str, level: str, n: int = 5) -> list[str]:
+    def suggest_topics(self, target_lang: str, n: int = 5) -> list[str]:
         progress = self._store.load_lessons_progress(target_lang)
         completed = progress.get("completed", [])
         completed_note = f"Already covered: {', '.join(completed)}. " if completed else ""
@@ -25,8 +25,8 @@ class LessonService:
                 {
                     "role": "user",
                     "content": (
-                        f"{completed_note}Suggest {n} lesson topics for a {target_lang} learner "
-                        f"at level {level}. Return a JSON array of topic name strings only."
+                        f"{completed_note}Suggest {n} lesson topics for a {target_lang} learner."
+                        f" Return a JSON array of topic name strings only."
                     ),
                 }
             ],
@@ -44,7 +44,6 @@ class LessonService:
         self,
         target_lang: str,
         native_lang: str,
-        level: str,
         topic: str,
         difficulty: str = "Normal",
     ) -> dict:
@@ -56,7 +55,6 @@ class LessonService:
         system_prompt = self._pb.lesson_system_prompt(
             native_lang=native_lang,
             target_lang=target_lang,
-            level=level,
             topic=topic,
             phase="structured",
             difficulty=difficulty,
@@ -89,7 +87,6 @@ class LessonService:
         session_id: str,
         lesson_id: str,
         native_lang: str,
-        level: str,
         topic: str,
         phase: str,
         difficulty: str,
@@ -101,7 +98,6 @@ class LessonService:
         system_prompt = self._pb.lesson_system_prompt(
             native_lang=native_lang,
             target_lang=target_lang,
-            level=level,
             topic=topic,
             phase=phase,
             difficulty=difficulty,
@@ -126,7 +122,6 @@ class LessonService:
         self,
         target_lang: str,
         native_lang: str,
-        level: str,
         topic: str,
         difficulty: str = "Normal",
     ) -> tuple[str, str, StreamCollector]:
@@ -137,7 +132,6 @@ class LessonService:
         system_prompt = self._pb.lesson_system_prompt(
             native_lang=native_lang,
             target_lang=target_lang,
-            level=level,
             topic=topic,
             phase="structured",
             difficulty=difficulty,
@@ -175,7 +169,6 @@ class LessonService:
         target_lang: str,
         session_id: str,
         native_lang: str,
-        level: str,
         topic: str,
         phase: str,
         difficulty: str,
@@ -186,7 +179,6 @@ class LessonService:
         system_prompt = self._pb.lesson_system_prompt(
             native_lang=native_lang,
             target_lang=target_lang,
-            level=level,
             topic=topic,
             phase=phase,
             difficulty=difficulty,

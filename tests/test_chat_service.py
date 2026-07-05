@@ -30,7 +30,7 @@ def test_send_message_returns_response(tmp_store, mock_llm):
     mock_llm.generate.return_value = "いいですね。"
     svc, _ = _make_services(tmp_store, mock_llm)
     sid = tmp_store.create_chat_session("ja", "Test")
-    result = svc.send_message("ja", sid, "zh-TW", "N4", "Hello", image_path=None)
+    result = svc.send_message("ja", sid, "zh-TW", "Hello", image_path=None)
     assert result["response"] == "いいですね。"
     assert result["word_suggestions"] == []
 
@@ -39,7 +39,7 @@ def test_send_message_saves_messages(tmp_store, mock_llm):
     mock_llm.generate.return_value = "こんにちは。"
     svc, _ = _make_services(tmp_store, mock_llm)
     sid = tmp_store.create_chat_session("ja", "Test")
-    svc.send_message("ja", sid, "zh-TW", "N4", "Hi", image_path=None)
+    svc.send_message("ja", sid, "zh-TW", "Hi", image_path=None)
     messages = tmp_store.load_chat_messages("ja", sid)
     assert len(messages) == 2
     assert messages[0]["role"] == "user"
@@ -52,7 +52,7 @@ def test_send_message_extracts_word_suggestions(tmp_store, mock_llm):
     )
     svc, _ = _make_services(tmp_store, mock_llm)
     sid = tmp_store.create_chat_session("ja", "Test")
-    result = svc.send_message("ja", sid, "zh-TW", "N4", "What does eat mean?", image_path=None)
+    result = svc.send_message("ja", sid, "zh-TW", "What does eat mean?", image_path=None)
     assert len(result["word_suggestions"]) == 1
     assert "<!--" not in result["response"]
 
@@ -66,7 +66,7 @@ def test_send_message_with_image_uses_vlm(tmp_store, mock_llm, mock_vlm):
     memory_svc = MemoryService(tmp_store, mm, pb)
     svc = ChatService(tmp_store, mm, pb, memory_svc)
     sid = tmp_store.create_chat_session("ja", "Test")
-    result = svc.send_message("ja", sid, "zh-TW", "N4", "What is this?", image_path="/tmp/fake.jpg")
+    result = svc.send_message("ja", sid, "zh-TW", "What is this?", image_path="/tmp/fake.jpg")
     assert result["response"] == "画像に猫がいます。"
     mm.get_vlm.assert_called_once()
     mm.get_llm.assert_not_called()

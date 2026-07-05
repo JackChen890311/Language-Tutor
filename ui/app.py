@@ -6,6 +6,7 @@ _NAV = [
     ("📝", "Lesson"),
     ("💬", "Chat"),
     ("📚", "Word List"),
+    ("🧪", "Test"),
     ("⚙️", "Settings"),
 ]
 
@@ -110,6 +111,10 @@ def main() -> None:
         from ui.pages import word_list
 
         word_list.render()
+    elif page == "Test":
+        from ui.pages import test
+
+        test.render()
     elif page == "Settings":
         from ui.pages import settings
 

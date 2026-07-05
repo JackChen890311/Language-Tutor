@@ -203,14 +203,11 @@ def _render_review(word_svc, target_lang, native_lang) -> None:
             language_svc = get("language_svc")
             native_lang_local, target_lang_local = language_svc.get_language_pair()
             store = get("store")
-            level_data = store.load_level(target_lang)
-            level = level_data.get("level", "N4")
             tmp_session = store.create_chat_session(target_lang, "_review_tmp")
             result = chat_svc.send_message(
                 lang=target_lang,
                 session_id=tmp_session,
                 native_lang=native_lang_local,
-                level=level,
                 user_text=f"Please evaluate this sentence using the word {word['word']}: {user_sentence}",
                 image_path=None,
             )

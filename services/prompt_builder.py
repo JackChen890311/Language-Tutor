@@ -10,7 +10,7 @@ LANG_NAMES = {
 
 DIFFICULTY_INSTRUCTIONS = {
     "Easy": "Use simpler vocabulary, shorter sentences, and provide more hints and encouragement.",
-    "Normal": "Match the user's assessed proficiency level naturally.",
+    "Normal": "Use natural, moderately-paced language and everyday vocabulary.",
     "Hard": "Use complex grammar, native-speed examples, and provide minimal hand-holding.",
 }
 
@@ -27,12 +27,11 @@ class PromptBuilder:
             )
         return ""
 
-    def chat_system_prompt(self, native_lang: str, target_lang: str, level: str) -> str:
+    def chat_system_prompt(self, native_lang: str, target_lang: str) -> str:
         return (
             f"You are a patient and encouraging language tutor.\n\n"
             f"Native language: {self._lang_name(native_lang)} ({native_lang})\n"
-            f"Target language: {self._lang_name(target_lang)} ({target_lang})\n"
-            f"User proficiency: {level}\n\n"
+            f"Target language: {self._lang_name(target_lang)} ({target_lang})\n\n"
             f"Rules:\n"
             f"- Respond in {self._lang_name(native_lang)} for explanations and feedback\n"
             f"- Use {self._lang_name(target_lang)} for language practice\n"
@@ -43,16 +42,16 @@ class PromptBuilder:
             f"to hear or practice, wrap them in <speak>…</speak> tags. "
             f"Do NOT tag explanations, translations, or {self._lang_name(native_lang)} text.\n"
             f"- When you introduce a single vocabulary word (not a phrase or sentence) "
-            f"likely to be new at {level}, append exactly one marker per unique word:\n"
+            f"likely to be new to a learner, append exactly one marker per unique word:\n"
             f'  <!--WORD_SUGGESTION:{{"word": "<single word>", "reading": "<reading/pronunciation>"}}-->\n'
             f"  Do NOT repeat the same word marker twice.\n"
             f"{self._chinese_rule(native_lang)}"
         )
 
-    def level_test_system_prompt(self, target_lang: str, n_questions: int = 8) -> str:
+    def test_system_prompt(self, target_lang: str, n_questions: int = 8) -> str:
         return (
-            f"You are administering a {self._lang_name(target_lang)} ({target_lang}) "
-            f"proficiency test.\n\n"
+            f"You are creating a {self._lang_name(target_lang)} ({target_lang}) "
+            f"practice quiz.\n\n"
             f"Generate exactly {n_questions} multiple choice questions covering vocabulary, "
             f"grammar, and reading comprehension.\n\n"
             f"Respond ONLY with a JSON array, no other text:\n"
@@ -102,7 +101,6 @@ class PromptBuilder:
         self,
         native_lang: str,
         target_lang: str,
-        level: str,
         topic: str,
         phase: str,
         difficulty: str = "Normal",
@@ -129,7 +127,6 @@ class PromptBuilder:
         return (
             f"You are teaching a {self._lang_name(target_lang)} lesson.\n\n"
             f"Topic: {topic}\n"
-            f"User proficiency: {level}\n"
             f"Difficulty: {difficulty} — {difficulty_note}\n"
             f"Native language: {self._lang_name(native_lang)} ({native_lang})\n\n"
             f"{phase_instructions}\n"
@@ -138,7 +135,7 @@ class PromptBuilder:
             f"to hear or practice, wrap them in <speak>…</speak> tags. "
             f"Do NOT tag explanations, translations, or {self._lang_name(native_lang)} text.\n"
             f"When you introduce a single vocabulary word (not a phrase or sentence) "
-            f"likely to be new at {level}, append exactly one marker per unique word:\n"
+            f"likely to be new to a learner, append exactly one marker per unique word:\n"
             f'<!--WORD_SUGGESTION:{{"word": "<single word>", "reading": "<reading/pronunciation>"}}-->\n'
             f"Do NOT repeat the same word marker twice.\n"
             f"{self._chinese_rule(native_lang)}"

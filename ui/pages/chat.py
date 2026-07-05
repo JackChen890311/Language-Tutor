@@ -45,9 +45,6 @@ def render() -> None:
     if session_info:
         st.subheader(session_info["name"])
 
-    level_data = store.load_level(target_lang)
-    level = level_data.get("level", "N4")
-
     messages = chat_svc.get_history(target_lang, active_session)
     for msg in messages:
         with st.chat_message(msg["role"]):
@@ -83,7 +80,6 @@ def render() -> None:
             lang=target_lang,
             session_id=active_session,
             native_lang=native_lang,
-            level=level,
             user_text=final_input,
             image_path=image_path,
         )

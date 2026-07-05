@@ -50,28 +50,10 @@ def render() -> None:
             st.code(mm.get_download_command(slot), language="bash")
 
     st.divider()
-    st.subheader("📊 Level Test")
-    level_test_svc = get("level_test_svc")
-    _, current_target = language_svc.get_language_pair()
-    store = get("store")
-    level_data = store.load_level(current_target)
-
-    if level_data.get("level"):
-        st.info(
-            f"Current level: **{level_data['level']}** (score: {level_data.get('score', '?')}%)"
-        )
-
-    if st.button("🎯 Take Level Test"):
-        st.session_state._taking_test = True
-        st.rerun()
-
-    if st.session_state.get("_taking_test"):
-        _run_level_test(level_test_svc, current_target, language_svc)
-
-    st.divider()
     st.subheader("⚠️ Danger Zone")
+    store = get("store")
     st.caption(
-        f"Permanently delete all chats, word list, lessons, and progress for **{current_target}**."
+        f"Permanently delete all chats, word list, lessons, and progress for **{target_lang}**."
     )
 
     if not st.session_state.get("_confirm_clear"):
@@ -80,19 +62,20 @@ def render() -> None:
             st.rerun()
     else:
         st.warning(
-            "This will delete **all** chat history, saved words, lesson notes, and level data for this language. This cannot be undone."
+            "This will delete **all** chat history, saved words, lesson notes, and progress "
+            "for this language. This cannot be undone."
         )
         col_yes, col_no = st.columns([1, 3])
         with col_yes:
             if st.button("Yes, delete everything", type="primary"):
-                store.clear_language_history(current_target)
+                store.clear_language_history(target_lang)
                 for key in [
                     "_confirm_clear",
                     "active_lesson",
                     "suggested_topics",
                     "test_questions",
                     "test_answers",
-                    "_taking_test",
+                    "test_result",
                 ]:
                     st.session_state.pop(key, None)
                 st.success("All history cleared.")
@@ -101,28 +84,3 @@ def render() -> None:
             if st.button("Cancel"):
                 st.session_state._confirm_clear = False
                 st.rerun()
-
-
-def _run_level_test(level_test_svc, target_lang: str, language_svc) -> None:
-    if "test_questions" not in st.session_state:
-        with st.spinner("Generating test questions..."):
-            st.session_state.test_questions = level_test_svc.generate_questions(target_lang)
-        st.session_state.test_answers = {}
-
-    questions = st.session_state.test_questions
-    st.subheader(f"Level Test ({len(questions)} questions)")
-
-    for i, q in enumerate(questions):
-        st.write(f"**Q{i + 1}.** {q['question']}")
-        answer = st.radio(f"q{i}", q["options"], key=f"test_q_{i}", label_visibility="collapsed")
-        st.session_state.test_answers[i] = answer[0]  # "A", "B", "C", or "D"
-
-    if st.button("✅ Submit Test"):
-        answers = [st.session_state.test_answers.get(i, "A") for i in range(len(questions))]
-        result = level_test_svc.evaluate(questions, answers, target_lang)
-        st.success(f"Level assessed: **{result['level']}** ({result['score']}%)")
-        del st.session_state.test_questions
-        del st.session_state.test_answers
-        st.session_state._taking_test = False
-        language_svc.update_streak(target_lang)
-        st.rerun()

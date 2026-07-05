@@ -1,14 +1,14 @@
 import json
 from unittest.mock import MagicMock
-from services.level_test_service import LevelTestService
+from services.quiz_service import QuizService
 from services.prompt_builder import PromptBuilder
 
 
-def _make_svc(tmp_store, mock_llm):
+def _make_svc(mock_llm):
     pb = PromptBuilder()
     mm = MagicMock()
     mm.get_llm.return_value = mock_llm
-    return LevelTestService(tmp_store, mm, pb)
+    return QuizService(mm, pb)
 
 
 def _mock_questions():
@@ -30,39 +30,29 @@ def _mock_questions():
     )
 
 
-def test_generate_questions(tmp_store, mock_llm):
+def test_generate_questions(mock_llm):
     mock_llm.generate.return_value = _mock_questions()
-    svc = _make_svc(tmp_store, mock_llm)
+    svc = _make_svc(mock_llm)
     questions = svc.generate_questions("ja")
     assert len(questions) == 2
     assert questions[0]["question"] == "What does 食べる mean?"
 
 
-def test_evaluate_perfect_score(tmp_store, mock_llm):
+def test_evaluate_perfect_score(mock_llm):
     mock_llm.generate.return_value = _mock_questions()
-    svc = _make_svc(tmp_store, mock_llm)
+    svc = _make_svc(mock_llm)
     questions = svc.generate_questions("ja")
-    answers = ["A", "C"]
-    result = svc.evaluate(questions, answers, "ja")
+    result = svc.evaluate(questions, ["A", "C"])
     assert result["score"] == 100
-    assert result["level"] in ("N5", "N4", "N3", "N2", "N1")
+    assert result["correct"] == 2
+    assert result["total"] == 2
+    assert "level" not in result
 
 
-def test_evaluate_zero_score(tmp_store, mock_llm):
+def test_evaluate_zero_score(mock_llm):
     mock_llm.generate.return_value = _mock_questions()
-    svc = _make_svc(tmp_store, mock_llm)
+    svc = _make_svc(mock_llm)
     questions = svc.generate_questions("ja")
-    answers = ["B", "A"]
-    result = svc.evaluate(questions, answers, "ja")
+    result = svc.evaluate(questions, ["B", "A"])
     assert result["score"] == 0
-    assert result["level"] == "N5"
-
-
-def test_evaluate_saves_result(tmp_store, mock_llm):
-    mock_llm.generate.return_value = _mock_questions()
-    svc = _make_svc(tmp_store, mock_llm)
-    questions = svc.generate_questions("ja")
-    svc.evaluate(questions, ["A", "C"], "ja")
-    saved = tmp_store.load_level("ja")
-    assert saved["level"] is not None
-    assert saved["score"] == 100
+    assert result["correct"] == 0

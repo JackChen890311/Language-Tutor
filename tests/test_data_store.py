@@ -9,10 +9,10 @@ def test_load_settings_returns_empty_dict_when_missing(tmp_store):
     assert tmp_store.load_settings() == {}
 
 
-def test_level_round_trip(tmp_store):
-    tmp_store.save_level("ja", {"level": "N4", "score": 80})
-    result = tmp_store.load_level("ja")
-    assert result["level"] == "N4"
+def test_streak_round_trip(tmp_store):
+    tmp_store.save_streak("ja", {"streak": 3, "last_active": "2026-07-05"})
+    result = tmp_store.load_streak("ja")
+    assert result["streak"] == 3
 
 
 def test_create_and_list_chat_sessions(tmp_store):

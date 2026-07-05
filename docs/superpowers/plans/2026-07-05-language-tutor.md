@@ -35,3 +35,1563 @@
 - [x] **Step 3:** Add this 2026-07-05 plan+spec pair, covering the Makefile, the model-id bug fix, and this doc reorganization itself
 - [x] **Step 4:** Add `CLAUDE.md` at the repo root pointing future sessions at the dated docs and requiring a new dated plan+spec pair (plus a commit) for future feature work
 - [x] **Step 5:** Commit — `docs: reorganize plans/specs by commit date, add CLAUDE.md` (this update)
+
+---
+
+## Update: Remove the level/proficiency concept; add a standalone "Test" section
+
+> See `docs/superpowers/specs/2026-07-05-language-tutor-design.md` (final section) for the design rationale.
+>
+> **For agentic workers:** REQUIRED SUB-SKILL: use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to run Tasks 27–29 below.
+>
+> **Commit strategy for this update:** `level` and `test` are threaded through `PromptBuilder` → `ChatService`/`LessonService`/`QuizService`, and `DataStore`'s level storage → `LanguageService`. These are mutually coupled — renaming one in isolation breaks its callers — so Task 27 changes the whole service layer together and is verified as one unit (run each test file as you touch it, then the full service-layer sweep at the end of the task). **Do not `git commit` after Task 27 or Task 28** — the working tree is intentionally not independently committable mid-refactor. Task 29 runs the full suite and does the single commit + push for this whole update.
+
+### Task 27: Remove the level concept from the service layer
+
+**Files:**
+- Modify: `data_store/data_store.py` (rename `load_level`/`save_level` → `load_streak`/`save_streak`)
+- Modify: `tests/test_data_store.py`
+- Modify: `services/language_service.py` (drop `PROFICIENCY_FRAMEWORKS`/`_CEFR`/`get_proficiency_framework`; use streak storage; drop `"level"` from `get_stats`)
+- Modify: `tests/test_language_service.py`
+- Modify: `services/prompt_builder.py` (drop `level` param from `chat_system_prompt`/`lesson_system_prompt`; reword `DIFFICULTY_INSTRUCTIONS["Normal"]`; rename `level_test_system_prompt` → `test_system_prompt` and reword its copy)
+- Modify: `tests/test_prompt_builder.py`
+- Modify: `services/chat_service.py` (drop `level` param from `send_message`/`stream_message`)
+- Modify: `tests/test_chat_service.py`
+- Modify: `services/lesson_service.py` (drop `level` param from `suggest_topics`/`start_lesson`/`continue_lesson`/`stream_start_lesson`/`stream_continue_lesson`)
+- Modify: `tests/test_lesson_service.py`
+- Create: `services/quiz_service.py` (renamed/rewritten from `services/level_test_service.py`, dropping level scoring and persistence)
+- Delete: `services/level_test_service.py`
+- Create: `tests/test_quiz_service.py` (renamed/rewritten from `tests/test_level_test_service.py`)
+- Delete: `tests/test_level_test_service.py`
+- Migrate: `data/ja/progress/level.json` → `data/ja/progress/streak.json` (local dev data, gitignored — not a code change)
+
+**Interfaces:**
+- Produces: `DataStore.load_streak(lang) -> dict`, `DataStore.save_streak(lang, data) -> None`
+- Produces: `PromptBuilder.chat_system_prompt(native_lang, target_lang) -> str`, `PromptBuilder.lesson_system_prompt(native_lang, target_lang, topic, phase, difficulty="Normal") -> str`, `PromptBuilder.test_system_prompt(target_lang, n_questions=8) -> str`
+- Produces: `ChatService.send_message(lang, session_id, native_lang, user_text, image_path=None) -> dict`, `ChatService.stream_message(lang, session_id, native_lang, user_text, image_path=None) -> StreamCollector`
+- Produces: `LessonService.suggest_topics(target_lang, n=5) -> list[str]`, `.start_lesson(target_lang, native_lang, topic, difficulty="Normal") -> dict`, `.continue_lesson(target_lang, session_id, lesson_id, native_lang, topic, phase, difficulty, user_text) -> dict`, `.stream_start_lesson(target_lang, native_lang, topic, difficulty="Normal") -> tuple`, `.stream_continue_lesson(target_lang, session_id, native_lang, topic, phase, difficulty, user_text) -> StreamCollector`
+- Produces: `QuizService(model_manager, prompt_builder)` with `.generate_questions(target_lang, n_questions=8) -> list[dict]` and `.evaluate(questions, answers) -> dict` (returns `{score, correct, total, tested_at}` — no `level` key, nothing persisted)
+- Consumes (Task 28 UI layer will call these): all of the above
+
+- [x] **Step 1: Rename `DataStore`'s level storage to streak storage**
+
+Edit `data_store/data_store.py`, replacing:
+
+```python
+    def load_level(self, lang: str) -> dict:
+        path = self._progress_dir(lang) / "level.json"
+        if not path.exists():
+            return {}
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def save_level(self, lang: str, data: dict) -> None:
+        path = self._progress_dir(lang) / "level.json"
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+```
+
+with:
+
+```python
+    def load_streak(self, lang: str) -> dict:
+        path = self._progress_dir(lang) / "streak.json"
+        if not path.exists():
+            return {}
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def save_streak(self, lang: str, data: dict) -> None:
+        path = self._progress_dir(lang) / "streak.json"
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+```
+
+- [x] **Step 2: Update the DataStore test**
+
+Edit `tests/test_data_store.py`, replacing:
+
+```python
+def test_level_round_trip(tmp_store):
+    tmp_store.save_level("ja", {"level": "N4", "score": 80})
+    result = tmp_store.load_level("ja")
+    assert result["level"] == "N4"
+```
+
+with:
+
+```python
+def test_streak_round_trip(tmp_store):
+    tmp_store.save_streak("ja", {"streak": 3, "last_active": "2026-07-05"})
+    result = tmp_store.load_streak("ja")
+    assert result["streak"] == 3
+```
+
+- [x] **Step 3: Run the DataStore tests**
+
+Run: `uv run pytest tests/test_data_store.py -v`
+Expected: PASS (all tests, including the new `test_streak_round_trip`)
+
+- [x] **Step 4: Migrate the local data file**
+
+This is a one-time local filesystem fix (not code) for existing dev data at `data/ja/progress/level.json`, which is gitignored:
+
+```bash
+python3 -c "
+import json
+from pathlib import Path
+p = Path('data/ja/progress/level.json')
+data = json.loads(p.read_text())
+streak_data = {k: data[k] for k in ('streak', 'last_active') if k in data}
+Path('data/ja/progress/streak.json').write_text(json.dumps(streak_data, ensure_ascii=False, indent=2))
+p.unlink()
+"
+```
+
+- [x] **Step 5: Remove the proficiency framework tables from `LanguageService`, switch to streak storage**
+
+Rewrite `services/language_service.py` in full:
+
+```python
+from datetime import date, timedelta
+from data_store.data_store import DataStore
+
+
+class LanguageService:
+    def __init__(self, store: DataStore):
+        self._store = store
+
+    def set_language_pair(self, native: str, target: str) -> None:
+        settings = self._store.load_settings()
+        settings["native_lang"] = native
+        settings["target_lang"] = target
+        self._store.save_settings(settings)
+
+    def get_language_pair(self) -> tuple[str, str]:
+        settings = self._store.load_settings()
+        return settings.get("native_lang", "en"), settings.get("target_lang", "ja")
+
+    def update_streak(self, lang: str) -> None:
+        streak_data = self._store.load_streak(lang)
+        today = date.today().isoformat()
+        last_active = streak_data.get("last_active")
+        streak = streak_data.get("streak", 0)
+
+        if last_active == today:
+            return
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        streak = (streak + 1) if last_active == yesterday else 1
+        streak_data["streak"] = streak
+        streak_data["last_active"] = today
+        self._store.save_streak(lang, streak_data)
+
+    def get_stats(self, lang: str) -> dict:
+        streak_data = self._store.load_streak(lang)
+        words = self._store.load_wordlist(lang)
+        lessons = self._store.load_lessons_progress(lang)
+        return {
+            "streak": streak_data.get("streak", 0),
+            "last_active": streak_data.get("last_active", ""),
+            "words_saved": len(words),
+            "words_reviewed_this_week": sum(
+                1
+                for w in words
+                if w.get("review_stats", {}).get("last_reviewed") is not None
+                and w["review_stats"]["last_reviewed"]
+                >= (date.today() - timedelta(days=7)).isoformat()
+            ),
+            "lessons_completed": len(lessons.get("completed", [])),
+        }
+```
+
+- [x] **Step 6: Update the LanguageService tests**
+
+Rewrite `tests/test_language_service.py` in full:
+
+```python
+from services.language_service import LanguageService
+from freezegun import freeze_time
+
+
+def test_get_set_language_pair(tmp_store):
+    svc = LanguageService(tmp_store)
+    svc.set_language_pair(native="zh-TW", target="ja")
+    native, target = svc.get_language_pair()
+    assert native == "zh-TW"
+    assert target == "ja"
+
+
+def test_default_language_pair(tmp_store):
+    svc = LanguageService(tmp_store)
+    native, target = svc.get_language_pair()
+    assert native == "en"
+    assert target == "ja"
+
+
+def test_update_streak_first_day(tmp_store):
+    svc = LanguageService(tmp_store)
+    svc.update_streak("ja")
+    stats = svc.get_stats("ja")
+    assert stats["streak"] == 1
+
+
+def test_get_stats_defaults(tmp_store):
+    svc = LanguageService(tmp_store)
+    stats = svc.get_stats("ja")
+    assert stats["words_saved"] == 0
+    assert stats["lessons_completed"] == 0
+
+
+def test_update_streak_same_day_no_double_count(tmp_store):
+    with freeze_time("2026-05-10"):
+        svc = LanguageService(tmp_store)
+        svc.update_streak("ja")
+        svc.update_streak("ja")
+        stats = svc.get_stats("ja")
+        assert stats["streak"] == 1
+
+
+def test_update_streak_consecutive_days(tmp_store):
+    svc = LanguageService(tmp_store)
+    with freeze_time("2026-05-09"):
+        svc.update_streak("ja")
+    with freeze_time("2026-05-10"):
+        svc.update_streak("ja")
+        stats = svc.get_stats("ja")
+        assert stats["streak"] == 2
+
+
+def test_update_streak_gap_resets(tmp_store):
+    svc = LanguageService(tmp_store)
+    with freeze_time("2026-05-08"):
+        svc.update_streak("ja")
+    with freeze_time("2026-05-10"):
+        svc.update_streak("ja")
+        stats = svc.get_stats("ja")
+        assert stats["streak"] == 1
+```
+
+- [x] **Step 7: Run the LanguageService tests**
+
+Run: `uv run pytest tests/test_language_service.py -v`
+Expected: PASS
+
+- [x] **Step 8: Drop `level` from the prompt builder; rename the test prompt**
+
+Rewrite `services/prompt_builder.py` in full:
+
+```python
+LANG_NAMES = {
+    "zh-TW": "Traditional Chinese (繁體中文, 台灣用語)",
+    "ja": "Japanese",
+    "en": "English",
+    "ko": "Korean",
+    "es": "Spanish",
+    "fr": "French",
+    "de": "German",
+}
+
+DIFFICULTY_INSTRUCTIONS = {
+    "Easy": "Use simpler vocabulary, shorter sentences, and provide more hints and encouragement.",
+    "Normal": "Use natural, moderately-paced language and everyday vocabulary.",
+    "Hard": "Use complex grammar, native-speed examples, and provide minimal hand-holding.",
+}
+
+
+class PromptBuilder:
+    def _lang_name(self, code: str) -> str:
+        return LANG_NAMES.get(code, code)
+
+    def _chinese_rule(self, native_lang: str) -> str:
+        if native_lang in ("zh-TW", "zh"):
+            return (
+                "- IMPORTANT: Always use Traditional Chinese (繁體中文) with 台灣用語 and "
+                "Taiwanese terminology. Never use Simplified Chinese.\n"
+            )
+        return ""
+
+    def chat_system_prompt(self, native_lang: str, target_lang: str) -> str:
+        return (
+            f"You are a patient and encouraging language tutor.\n\n"
+            f"Native language: {self._lang_name(native_lang)} ({native_lang})\n"
+            f"Target language: {self._lang_name(target_lang)} ({target_lang})\n\n"
+            f"Rules:\n"
+            f"- Respond in {self._lang_name(native_lang)} for explanations and feedback\n"
+            f"- Use {self._lang_name(target_lang)} for language practice\n"
+            f"- When the user makes a mistake, always correct it: note the error, "
+            f"explain why it is wrong, give the correct form, then continue naturally\n"
+            f"- Tone: encouraging and patient; corrections are matter-of-fact, never condescending\n"
+            f"- When you write {self._lang_name(target_lang)} sentences or phrases for the user "
+            f"to hear or practice, wrap them in <speak>…</speak> tags. "
+            f"Do NOT tag explanations, translations, or {self._lang_name(native_lang)} text.\n"
+            f"- When you introduce a single vocabulary word (not a phrase or sentence) "
+            f"likely to be new to a learner, append exactly one marker per unique word:\n"
+            f'  <!--WORD_SUGGESTION:{{"word": "<single word>", "reading": "<reading/pronunciation>"}}-->\n'
+            f"  Do NOT repeat the same word marker twice.\n"
+            f"{self._chinese_rule(native_lang)}"
+        )
+
+    def test_system_prompt(self, target_lang: str, n_questions: int = 8) -> str:
+        return (
+            f"You are creating a {self._lang_name(target_lang)} ({target_lang}) "
+            f"practice quiz.\n\n"
+            f"Generate exactly {n_questions} multiple choice questions covering vocabulary, "
+            f"grammar, and reading comprehension.\n\n"
+            f"Respond ONLY with a JSON array, no other text:\n"
+            f"[\n"
+            f"  {{\n"
+            f'    "question": "...",\n'
+            f'    "options": ["A) ...", "B) ...", "C) ...", "D) ..."],\n'
+            f'    "correct": "A",\n'
+            f'    "explanation": "..."\n'
+            f"  }}\n"
+            f"]\n"
+        )
+
+    def word_enrichment_prompt(self, target_lang: str, native_lang: str) -> str:
+        return (
+            f"You are a dictionary assistant for {self._lang_name(target_lang)}.\n\n"
+            f"Given a word, return a JSON object with these exact fields:\n"
+            f"{{\n"
+            f'  "translation": "string (concise 1-5 word {self._lang_name(native_lang)} translation)",\n'
+            f'  "definition": "string",\n'
+            f'  "part_of_speech": "string",\n'
+            f'  "formality": "casual|neutral|formal",\n'
+            f'  "synonyms": ["string"],\n'
+            f'  "antonyms": ["string"],\n'
+            f'  "collocations": ["string"],\n'
+            f'  "conjugations": {{}} or null,\n'
+            f'  "tense_notes": "string" or null,\n'
+            f'  "examples": ["string"],\n'
+            f'  "grammar_notes": "string",\n'
+            f'  "proficiency_level": "string",\n'
+            f'  "language_specific": {{}}\n'
+            f"}}\n\n"
+            f"All definitions, notes, and examples must be in {self._lang_name(native_lang)}. "
+            f"Respond ONLY with the JSON object."
+        )
+
+    def summarization_prompt(self, native_lang: str) -> str:
+        return (
+            f"Summarize the following conversation in under 300 words.\n"
+            f"Focus on: key topics discussed, vocabulary and grammar points introduced, "
+            f"the user's mistakes and corrections, and overall progress.\n"
+            f"Write the summary in {self._lang_name(native_lang)} ({native_lang}).\n"
+            f"Be concise and factual."
+        )
+
+    def lesson_system_prompt(
+        self,
+        native_lang: str,
+        target_lang: str,
+        topic: str,
+        phase: str,
+        difficulty: str = "Normal",
+    ) -> str:
+        difficulty_note = DIFFICULTY_INSTRUCTIONS.get(difficulty, DIFFICULTY_INSTRUCTIONS["Normal"])
+
+        if phase == "structured":
+            phase_instructions = (
+                f'You are guiding a structured lesson on "{topic}". Follow this sequence:\n'
+                f'1. Introduce 5-8 key vocabulary items relevant to "{topic}"\n'
+                f"2. Explain one relevant grammar point\n"
+                f"3. Give the user 3 practice exercises (fill-in-the-blank or translation)\n"
+                f"4. After the exercises, invite the user to move to free conversation\n"
+                f"Pace yourself — one step at a time. Wait for the user's response before moving on.\n"
+            )
+        else:
+            phase_instructions = (
+                f"The structured lesson is complete. Now have a natural free conversation "
+                f'on the topic "{topic}".\n'
+                f"Encourage use of the vocabulary and grammar from the lesson.\n"
+                f"Gently correct mistakes as they occur.\n"
+            )
+
+        return (
+            f"You are teaching a {self._lang_name(target_lang)} lesson.\n\n"
+            f"Topic: {topic}\n"
+            f"Difficulty: {difficulty} — {difficulty_note}\n"
+            f"Native language: {self._lang_name(native_lang)} ({native_lang})\n\n"
+            f"{phase_instructions}\n"
+            f"Always explain in {self._lang_name(native_lang)}. Practice in {self._lang_name(target_lang)}.\n"
+            f"When you write {self._lang_name(target_lang)} sentences or phrases for the user "
+            f"to hear or practice, wrap them in <speak>…</speak> tags. "
+            f"Do NOT tag explanations, translations, or {self._lang_name(native_lang)} text.\n"
+            f"When you introduce a single vocabulary word (not a phrase or sentence) "
+            f"likely to be new to a learner, append exactly one marker per unique word:\n"
+            f'<!--WORD_SUGGESTION:{{"word": "<single word>", "reading": "<reading/pronunciation>"}}-->\n'
+            f"Do NOT repeat the same word marker twice.\n"
+            f"{self._chinese_rule(native_lang)}"
+        )
+```
+
+- [x] **Step 9: Update the PromptBuilder tests**
+
+Rewrite `tests/test_prompt_builder.py` in full:
+
+```python
+from services.prompt_builder import PromptBuilder
+
+
+def test_chat_prompt_includes_languages():
+    pb = PromptBuilder()
+    prompt = pb.chat_system_prompt(native_lang="zh-TW", target_lang="ja")
+    assert "zh-TW" in prompt or "Traditional Chinese" in prompt
+    assert "ja" in prompt or "Japanese" in prompt
+
+
+def test_chat_prompt_chinese_native_includes_traditional_chinese_rule():
+    pb = PromptBuilder()
+    prompt = pb.chat_system_prompt(native_lang="zh-TW", target_lang="ja")
+    assert "繁體中文" in prompt or "Traditional Chinese" in prompt
+    assert "台灣" in prompt
+
+
+def test_chat_prompt_english_native_no_chinese_rule():
+    pb = PromptBuilder()
+    prompt = pb.chat_system_prompt(native_lang="en", target_lang="ja")
+    assert "台灣" not in prompt
+
+
+def test_test_prompt_includes_target_lang():
+    pb = PromptBuilder()
+    prompt = pb.test_system_prompt(target_lang="ja", n_questions=5)
+    assert "ja" in prompt or "Japanese" in prompt
+    assert "5" in prompt
+    assert "JSON" in prompt
+
+
+def test_word_enrichment_prompt():
+    pb = PromptBuilder()
+    prompt = pb.word_enrichment_prompt(target_lang="ja", native_lang="zh-TW")
+    assert "JSON" in prompt
+    assert "definition" in prompt
+    assert "translation" in prompt
+
+
+def test_summarization_prompt():
+    pb = PromptBuilder()
+    prompt = pb.summarization_prompt(native_lang="zh-TW")
+    assert "300" in prompt
+    assert "zh-TW" in prompt or "Traditional Chinese" in prompt
+
+
+def test_lesson_prompt_includes_phase():
+    pb = PromptBuilder()
+    prompt = pb.lesson_system_prompt(
+        native_lang="zh-TW",
+        target_lang="ja",
+        topic="food",
+        phase="structured",
+        difficulty="Normal",
+    )
+    assert "food" in prompt
+    assert "structured" in prompt or "vocabulary" in prompt.lower()
+
+
+def test_lesson_prompt_conversation_phase():
+    pb = PromptBuilder()
+    prompt = pb.lesson_system_prompt(
+        native_lang="zh-TW",
+        target_lang="ja",
+        topic="food",
+        phase="conversation",
+        difficulty="Hard",
+    )
+    assert "conversation" in prompt.lower() or "free" in prompt.lower()
+    assert "Hard" in prompt or "minimal" in prompt.lower()
+
+
+def test_chat_prompt_includes_speak_tag_instruction():
+    pb = PromptBuilder()
+    prompt = pb.chat_system_prompt(native_lang="zh-TW", target_lang="ja")
+    assert "<speak>" in prompt
+
+
+def test_lesson_prompt_includes_speak_tag_instruction():
+    pb = PromptBuilder()
+    prompt = pb.lesson_system_prompt(
+        native_lang="zh-TW",
+        target_lang="ja",
+        topic="food",
+        phase="structured",
+    )
+    assert "<speak>" in prompt
+```
+
+- [x] **Step 10: Run the PromptBuilder tests**
+
+Run: `uv run pytest tests/test_prompt_builder.py -v`
+Expected: PASS
+
+- [x] **Step 11: Drop `level` from `ChatService`**
+
+Edit `services/chat_service.py`. In `send_message`, replace the signature and system-prompt call:
+
+```python
+    def send_message(
+        self,
+        lang: str,
+        session_id: str,
+        native_lang: str,
+        user_text: str,
+        image_path: str | None = None,
+    ) -> dict:
+```
+
+(dropping the `level: str,` parameter), and replace:
+
+```python
+        system_prompt = self._pb.chat_system_prompt(
+            native_lang=native_lang, target_lang=lang, level=level
+        )
+```
+
+with:
+
+```python
+        system_prompt = self._pb.chat_system_prompt(native_lang=native_lang, target_lang=lang)
+```
+
+In `stream_message`, make the same two changes: drop `level: str,` from the signature, and replace the same `chat_system_prompt(...)` call the same way.
+
+- [x] **Step 12: Update the ChatService tests**
+
+Rewrite `tests/test_chat_service.py` in full:
+
+```python
+from unittest.mock import MagicMock
+from services.chat_service import ChatService, extract_word_suggestions
+from services.memory_service import MemoryService
+from services.prompt_builder import PromptBuilder
+
+
+def _make_services(tmp_store, mock_llm):
+    pb = PromptBuilder()
+    mm = MagicMock()
+    mm.get_llm.return_value = mock_llm
+    memory_svc = MemoryService(tmp_store, mm, pb)
+    return ChatService(tmp_store, mm, pb, memory_svc), pb
+
+
+def test_extract_word_suggestions_found():
+    text = 'Hello <!--WORD_SUGGESTION:{"word": "食べる", "reading": "たべる"}--> world'
+    clean, suggestions = extract_word_suggestions(text)
+    assert len(suggestions) == 1
+    assert suggestions[0]["word"] == "食べる"
+    assert "<!--" not in clean
+
+
+def test_extract_word_suggestions_none():
+    clean, suggestions = extract_word_suggestions("No suggestions here")
+    assert suggestions == []
+    assert clean == "No suggestions here"
+
+
+def test_send_message_returns_response(tmp_store, mock_llm):
+    mock_llm.generate.return_value = "いいですね。"
+    svc, _ = _make_services(tmp_store, mock_llm)
+    sid = tmp_store.create_chat_session("ja", "Test")
+    result = svc.send_message("ja", sid, "zh-TW", "Hello", image_path=None)
+    assert result["response"] == "いいですね。"
+    assert result["word_suggestions"] == []
+
+
+def test_send_message_saves_messages(tmp_store, mock_llm):
+    mock_llm.generate.return_value = "こんにちは。"
+    svc, _ = _make_services(tmp_store, mock_llm)
+    sid = tmp_store.create_chat_session("ja", "Test")
+    svc.send_message("ja", sid, "zh-TW", "Hi", image_path=None)
+    messages = tmp_store.load_chat_messages("ja", sid)
+    assert len(messages) == 2
+    assert messages[0]["role"] == "user"
+    assert messages[1]["role"] == "assistant"
+
+
+def test_send_message_extracts_word_suggestions(tmp_store, mock_llm):
+    mock_llm.generate.return_value = (
+        'Try 食べる <!--WORD_SUGGESTION:{"word": "食べる", "reading": "たべる"}-->'
+    )
+    svc, _ = _make_services(tmp_store, mock_llm)
+    sid = tmp_store.create_chat_session("ja", "Test")
+    result = svc.send_message("ja", sid, "zh-TW", "What does eat mean?", image_path=None)
+    assert len(result["word_suggestions"]) == 1
+    assert "<!--" not in result["response"]
+
+
+def test_send_message_with_image_uses_vlm(tmp_store, mock_llm, mock_vlm):
+    mock_vlm.generate.return_value = "画像に猫がいます。"
+    pb = PromptBuilder()
+    mm = MagicMock()
+    mm.get_llm.return_value = mock_llm
+    mm.get_vlm.return_value = mock_vlm
+    memory_svc = MemoryService(tmp_store, mm, pb)
+    svc = ChatService(tmp_store, mm, pb, memory_svc)
+    sid = tmp_store.create_chat_session("ja", "Test")
+    result = svc.send_message("ja", sid, "zh-TW", "What is this?", image_path="/tmp/fake.jpg")
+    assert result["response"] == "画像に猫がいます。"
+    mm.get_vlm.assert_called_once()
+    mm.get_llm.assert_not_called()
+```
+
+- [x] **Step 13: Run the ChatService tests**
+
+Run: `uv run pytest tests/test_chat_service.py -v`
+Expected: PASS
+
+- [x] **Step 14: Drop `level` from `LessonService`**
+
+Rewrite `services/lesson_service.py` in full:
+
+```python
+import json
+import uuid
+
+from data_store.data_store import DataStore
+from model_manager import ModelManager
+from services.chat_service import StreamCollector, extract_word_suggestions
+from services.prompt_builder import PromptBuilder
+
+
+class LessonService:
+    def __init__(
+        self, store: DataStore, model_manager: ModelManager, prompt_builder: PromptBuilder
+    ):
+        self._store = store
+        self._mm = model_manager
+        self._pb = prompt_builder
+
+    def suggest_topics(self, target_lang: str, n: int = 5) -> list[str]:
+        progress = self._store.load_lessons_progress(target_lang)
+        completed = progress.get("completed", [])
+        completed_note = f"Already covered: {', '.join(completed)}. " if completed else ""
+        llm = self._mm.get_llm()
+        raw = llm.generate(
+            [
+                {
+                    "role": "user",
+                    "content": (
+                        f"{completed_note}Suggest {n} lesson topics for a {target_lang} learner."
+                        f" Return a JSON array of topic name strings only."
+                    ),
+                }
+            ],
+            enable_thinking=False,
+        )
+        raw = raw.strip()
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            return []
+
+    def start_lesson(
+        self,
+        target_lang: str,
+        native_lang: str,
+        topic: str,
+        difficulty: str = "Normal",
+    ) -> dict:
+        lesson_id = f"lesson-{uuid.uuid4().hex[:8]}"
+        session_id = self._store.create_chat_session(
+            target_lang, f"📝 {topic}", lesson_id=lesson_id
+        )
+
+        system_prompt = self._pb.lesson_system_prompt(
+            native_lang=native_lang,
+            target_lang=target_lang,
+            topic=topic,
+            phase="structured",
+            difficulty=difficulty,
+        )
+        llm = self._mm.get_llm()
+        raw_response = llm.generate(
+            [{"role": "user", "content": "Please start the lesson."}],
+            system_prompt=system_prompt,
+            enable_thinking=False,
+        )
+        clean_response, word_suggestions = extract_word_suggestions(raw_response)
+        self._store.save_chat_messages(
+            target_lang, session_id, [{"role": "assistant", "content": clean_response}]
+        )
+        self._store.save_lesson_notes(
+            target_lang, lesson_id, f"# Lesson: {topic}\n\n{clean_response}"
+        )
+
+        return {
+            "lesson_id": lesson_id,
+            "session_id": session_id,
+            "response": clean_response,
+            "word_suggestions": word_suggestions,
+            "phase": "structured",
+        }
+
+    def continue_lesson(
+        self,
+        target_lang: str,
+        session_id: str,
+        lesson_id: str,
+        native_lang: str,
+        topic: str,
+        phase: str,
+        difficulty: str,
+        user_text: str,
+    ) -> dict:
+        messages = self._store.load_chat_messages(target_lang, session_id)
+        messages.append({"role": "user", "content": user_text})
+
+        system_prompt = self._pb.lesson_system_prompt(
+            native_lang=native_lang,
+            target_lang=target_lang,
+            topic=topic,
+            phase=phase,
+            difficulty=difficulty,
+        )
+        llm = self._mm.get_llm()
+        raw_response = llm.generate(messages, system_prompt=system_prompt, enable_thinking=False)
+        clean_response, word_suggestions = extract_word_suggestions(raw_response)
+
+        messages.append({"role": "assistant", "content": clean_response})
+        self._store.save_chat_messages(target_lang, session_id, messages)
+
+        existing_notes = self._store.load_lesson_notes(target_lang, lesson_id)
+        self._store.save_lesson_notes(
+            target_lang,
+            lesson_id,
+            existing_notes + f"\n\n**User:** {user_text}\n\n**Tutor:** {clean_response}",
+        )
+
+        return {"response": clean_response, "word_suggestions": word_suggestions, "phase": phase}
+
+    def stream_start_lesson(
+        self,
+        target_lang: str,
+        native_lang: str,
+        topic: str,
+        difficulty: str = "Normal",
+    ) -> tuple[str, str, StreamCollector]:
+        lesson_id = f"lesson-{uuid.uuid4().hex[:8]}"
+        session_id = self._store.create_chat_session(
+            target_lang, f"📝 {topic}", lesson_id=lesson_id
+        )
+        system_prompt = self._pb.lesson_system_prompt(
+            native_lang=native_lang,
+            target_lang=target_lang,
+            topic=topic,
+            phase="structured",
+            difficulty=difficulty,
+        )
+        llm = self._mm.get_llm()
+        collector = StreamCollector(
+            llm.stream(
+                [{"role": "user", "content": "Please start the lesson."}],
+                system_prompt=system_prompt,
+                enable_thinking=False,
+            )
+        )
+        return lesson_id, session_id, collector
+
+    def commit_start_lesson(
+        self, target_lang: str, session_id: str, lesson_id: str, topic: str, raw_response: str
+    ) -> dict:
+        clean_response, word_suggestions = extract_word_suggestions(raw_response)
+        self._store.save_chat_messages(
+            target_lang, session_id, [{"role": "assistant", "content": clean_response}]
+        )
+        self._store.save_lesson_notes(
+            target_lang, lesson_id, f"# Lesson: {topic}\n\n{clean_response}"
+        )
+        return {
+            "lesson_id": lesson_id,
+            "session_id": session_id,
+            "response": clean_response,
+            "word_suggestions": word_suggestions,
+            "phase": "structured",
+        }
+
+    def stream_continue_lesson(
+        self,
+        target_lang: str,
+        session_id: str,
+        native_lang: str,
+        topic: str,
+        phase: str,
+        difficulty: str,
+        user_text: str,
+    ) -> StreamCollector:
+        messages = self._store.load_chat_messages(target_lang, session_id)
+        messages.append({"role": "user", "content": user_text})
+        system_prompt = self._pb.lesson_system_prompt(
+            native_lang=native_lang,
+            target_lang=target_lang,
+            topic=topic,
+            phase=phase,
+            difficulty=difficulty,
+        )
+        llm = self._mm.get_llm()
+        return StreamCollector(
+            llm.stream(messages, system_prompt=system_prompt, enable_thinking=False)
+        )
+
+    def commit_continue_lesson(
+        self,
+        target_lang: str,
+        session_id: str,
+        lesson_id: str,
+        user_text: str,
+        raw_response: str,
+        phase: str,
+    ) -> dict:
+        messages = self._store.load_chat_messages(target_lang, session_id)
+        messages.append({"role": "user", "content": user_text})
+        clean_response, word_suggestions = extract_word_suggestions(raw_response)
+        messages.append({"role": "assistant", "content": clean_response})
+        self._store.save_chat_messages(target_lang, session_id, messages)
+        existing_notes = self._store.load_lesson_notes(target_lang, lesson_id)
+        self._store.save_lesson_notes(
+            target_lang,
+            lesson_id,
+            existing_notes + f"\n\n**User:** {user_text}\n\n**Tutor:** {clean_response}",
+        )
+        return {"response": clean_response, "word_suggestions": word_suggestions, "phase": phase}
+
+    def finish_lesson(self, target_lang: str, topic: str) -> None:
+        progress = self._store.load_lessons_progress(target_lang)
+        if topic not in progress["completed"]:
+            progress["completed"].append(topic)
+        if topic not in progress.get("topics", []):
+            progress.setdefault("topics", []).append(topic)
+        self._store.save_lessons_progress(target_lang, progress)
+```
+
+- [x] **Step 15: Update the LessonService tests**
+
+Rewrite `tests/test_lesson_service.py` in full:
+
+```python
+import json
+from unittest.mock import MagicMock
+from services.lesson_service import LessonService
+from services.prompt_builder import PromptBuilder
+
+
+def _make_svc(tmp_store, mock_llm):
+    pb = PromptBuilder()
+    mm = MagicMock()
+    mm.get_llm.return_value = mock_llm
+    return LessonService(tmp_store, mm, pb)
+
+
+def test_suggest_topics(tmp_store, mock_llm):
+    mock_llm.generate.return_value = json.dumps(["Food", "Travel", "Shopping", "Weather", "Family"])
+    svc = _make_svc(tmp_store, mock_llm)
+    topics = svc.suggest_topics("ja")
+    assert len(topics) == 5
+    assert "Food" in topics
+
+
+def test_start_lesson_creates_session(tmp_store, mock_llm):
+    mock_llm.generate.return_value = "Let's start with vocabulary for food..."
+    svc = _make_svc(tmp_store, mock_llm)
+    result = svc.start_lesson("ja", "zh-TW", "Food", difficulty="Normal")
+    assert "lesson_id" in result
+    assert "session_id" in result
+    assert "response" in result
+
+
+def test_continue_lesson_structured(tmp_store, mock_llm):
+    mock_llm.generate.return_value = "Good! Now let's do exercises."
+    svc = _make_svc(tmp_store, mock_llm)
+    lesson_id = "lesson-001"
+    session_id = tmp_store.create_chat_session("ja", "Food Lesson", lesson_id=lesson_id)
+    tmp_store.save_chat_messages(
+        "ja", session_id, [{"role": "assistant", "content": "Let's start."}]
+    )
+    result = svc.continue_lesson(
+        "ja",
+        session_id,
+        lesson_id,
+        "zh-TW",
+        "Food",
+        phase="structured",
+        difficulty="Normal",
+        user_text="I understand.",
+    )
+    assert "response" in result
+    assert "phase" in result
+
+
+def test_finish_lesson_saves_progress(tmp_store, mock_llm):
+    svc = _make_svc(tmp_store, mock_llm)
+    svc.finish_lesson("ja", "Food")
+    progress = tmp_store.load_lessons_progress("ja")
+    assert "Food" in progress["completed"]
+```
+
+- [x] **Step 16: Run the LessonService tests**
+
+Run: `uv run pytest tests/test_lesson_service.py -v`
+Expected: PASS
+
+- [x] **Step 17: Rename and rewrite the level test service into a plain `QuizService`**
+
+Deviation from the original plan draft: this class was drafted as `TestService`, but pytest treats any class named `Test*` as a test class to collect, which emits a spurious `PytestCollectionWarning` on every run once it's imported into a test file. Named `QuizService` instead (file `services/quiz_service.py`) to avoid that permanently — the UI nav label and page title stay "Test" as designed; only the internal class/module name changed.
+
+Create `services/quiz_service.py`:
+
+```python
+import json
+from datetime import datetime
+
+from model_manager import ModelManager
+from services.prompt_builder import PromptBuilder
+
+
+class QuizService:
+    def __init__(self, model_manager: ModelManager, prompt_builder: PromptBuilder):
+        self._mm = model_manager
+        self._pb = prompt_builder
+
+    def generate_questions(self, target_lang: str, n_questions: int = 8) -> list[dict]:
+        system_prompt = self._pb.test_system_prompt(target_lang, n_questions)
+        llm = self._mm.get_llm()
+        raw = llm.generate(
+            [{"role": "user", "content": "Generate the test questions now."}],
+            system_prompt=system_prompt,
+            enable_thinking=False,
+        )
+        raw = raw.strip()
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"LLM returned invalid JSON for test: {e}") from e
+
+    def evaluate(self, questions: list[dict], answers: list[str]) -> dict:
+        correct = sum(1 for q, a in zip(questions, answers) if q["correct"] == a)
+        score = round(correct / len(questions) * 100) if questions else 0
+        return {
+            "score": score,
+            "correct": correct,
+            "total": len(questions),
+            "tested_at": datetime.now().isoformat(),
+        }
+```
+
+Delete `services/level_test_service.py`:
+
+```bash
+rm services/level_test_service.py
+```
+
+- [x] **Step 18: Rename and rewrite the level test service tests**
+
+Create `tests/test_quiz_service.py`:
+
+```python
+import json
+from unittest.mock import MagicMock
+from services.quiz_service import QuizService
+from services.prompt_builder import PromptBuilder
+
+
+def _make_svc(mock_llm):
+    pb = PromptBuilder()
+    mm = MagicMock()
+    mm.get_llm.return_value = mock_llm
+    return QuizService(mm, pb)
+
+
+def _mock_questions():
+    return json.dumps(
+        [
+            {
+                "question": "What does 食べる mean?",
+                "options": ["A) to eat", "B) to drink", "C) to sleep", "D) to walk"],
+                "correct": "A",
+                "explanation": "食べる means to eat.",
+            },
+            {
+                "question": "Which particle marks the subject?",
+                "options": ["A) を", "B) に", "C) が", "D) で"],
+                "correct": "C",
+                "explanation": "が marks the subject.",
+            },
+        ]
+    )
+
+
+def test_generate_questions(mock_llm):
+    mock_llm.generate.return_value = _mock_questions()
+    svc = _make_svc(mock_llm)
+    questions = svc.generate_questions("ja")
+    assert len(questions) == 2
+    assert questions[0]["question"] == "What does 食べる mean?"
+
+
+def test_evaluate_perfect_score(mock_llm):
+    mock_llm.generate.return_value = _mock_questions()
+    svc = _make_svc(mock_llm)
+    questions = svc.generate_questions("ja")
+    result = svc.evaluate(questions, ["A", "C"])
+    assert result["score"] == 100
+    assert result["correct"] == 2
+    assert result["total"] == 2
+    assert "level" not in result
+
+
+def test_evaluate_zero_score(mock_llm):
+    mock_llm.generate.return_value = _mock_questions()
+    svc = _make_svc(mock_llm)
+    questions = svc.generate_questions("ja")
+    result = svc.evaluate(questions, ["B", "A"])
+    assert result["score"] == 0
+    assert result["correct"] == 0
+```
+
+Delete `tests/test_level_test_service.py`:
+
+```bash
+rm tests/test_level_test_service.py
+```
+
+- [x] **Step 19: Run the service-layer test sweep for this task**
+
+Run: `uv run pytest tests/test_data_store.py tests/test_language_service.py tests/test_prompt_builder.py tests/test_chat_service.py tests/test_lesson_service.py tests/test_quiz_service.py tests/test_word_list_service.py -v`
+Expected: PASS — all tests green (`test_word_list_service.py` is included as a regression check; it doesn't reference `level` and needs no edits)
+
+Do not commit yet — continue to Task 28.
+
+### Task 28: Move the Test UI into its own nav section; remove level display from Home
+
+**Files:**
+- Modify: `ui/state.py`
+- Modify: `ui/app.py`
+- Create: `ui/pages/test.py`
+- Modify: `ui/pages/settings.py`
+- Modify: `ui/pages/chat.py`
+- Modify: `ui/pages/lesson.py`
+- Modify: `ui/pages/word_list.py`
+- Modify: `ui/pages/home.py`
+
+**Interfaces:**
+- Consumes: `QuizService(model_manager, prompt_builder)` from Task 27, registered in `ui/state.py` as `quiz_svc`
+- Consumes: `ChatService.send_message`/`stream_message`, `LessonService.*`, `PromptBuilder.*` from Task 27 (all now level-free)
+
+No new automated tests in this task — this repo's `tests/` suite only covers `services/`/`data_store/`, not `ui/pages/` (there are no existing `test_*.py` files for any page). Verify this task by running the app (Step 9).
+
+- [x] **Step 1: Wire `QuizService` into `ui/state.py`**
+
+Rewrite `ui/state.py` in full:
+
+```python
+import streamlit as st
+from data_store.data_store import DataStore
+from model_manager import ModelManager
+from services.prompt_builder import PromptBuilder
+from services.language_service import LanguageService
+from services.memory_service import MemoryService
+from services.chat_service import ChatService
+from services.word_list_service import WordListService
+from services.lesson_service import LessonService
+from services.quiz_service import QuizService
+
+
+def init_services() -> None:
+    store = DataStore()
+    mm = st.session_state.get("mm") or ModelManager()  # reuse to keep models loaded
+    pb = PromptBuilder()
+    memory_svc = MemoryService(store, mm, pb)
+
+    st.session_state.store = store
+    st.session_state.mm = mm
+    st.session_state.pb = pb
+    st.session_state.language_svc = LanguageService(store)
+    st.session_state.memory_svc = memory_svc
+    st.session_state.chat_svc = ChatService(store, mm, pb, memory_svc)
+    st.session_state.word_svc = WordListService(store, mm, pb)
+    st.session_state.lesson_svc = LessonService(store, mm, pb)
+    st.session_state.quiz_svc = QuizService(mm, pb)
+
+
+def get(key: str):
+    return st.session_state[key]
+```
+
+- [x] **Step 2: Add the "Test" nav entry to `ui/app.py`**
+
+In `ui/app.py`, replace:
+
+```python
+_NAV = [
+    ("🏠", "Home"),
+    ("📝", "Lesson"),
+    ("💬", "Chat"),
+    ("📚", "Word List"),
+    ("⚙️", "Settings"),
+]
+```
+
+with:
+
+```python
+_NAV = [
+    ("🏠", "Home"),
+    ("📝", "Lesson"),
+    ("💬", "Chat"),
+    ("📚", "Word List"),
+    ("🧪", "Test"),
+    ("⚙️", "Settings"),
+]
+```
+
+Then replace:
+
+```python
+    elif page == "Word List":
+        from ui.pages import word_list
+
+        word_list.render()
+    elif page == "Settings":
+        from ui.pages import settings
+
+        settings.render()
+```
+
+with:
+
+```python
+    elif page == "Word List":
+        from ui.pages import word_list
+
+        word_list.render()
+    elif page == "Test":
+        from ui.pages import test
+
+        test.render()
+    elif page == "Settings":
+        from ui.pages import settings
+
+        settings.render()
+```
+
+- [x] **Step 3: Create the Test page**
+
+Create `ui/pages/test.py`:
+
+```python
+import streamlit as st
+from ui.state import get
+
+
+def render() -> None:
+    st.title("🧪 Test")
+    st.caption("Practice with a random quiz — no proficiency level involved.")
+
+    language_svc = get("language_svc")
+    quiz_svc = get("quiz_svc")
+    _, target_lang = language_svc.get_language_pair()
+
+    if st.button("🎲 Generate Test"):
+        st.session_state.test_questions = quiz_svc.generate_questions(target_lang)
+        st.session_state.test_answers = {}
+        st.session_state.pop("test_result", None)
+        st.rerun()
+
+    if "test_questions" not in st.session_state:
+        st.info("Click **Generate Test** to get a fresh set of random questions.")
+        return
+
+    questions = st.session_state.test_questions
+    result = st.session_state.get("test_result")
+
+    if result:
+        st.success(f"Score: **{result['correct']}/{result['total']}** ({result['score']}%)")
+        for i, q in enumerate(questions):
+            given = st.session_state.test_answers.get(i)
+            correct = q["correct"]
+            icon = "✅" if given == correct else "❌"
+            st.write(f"{icon} **Q{i + 1}.** {q['question']}")
+            st.caption(f"Correct answer: {correct} — {q.get('explanation', '')}")
+        if st.button("🔄 Try Another Test"):
+            for key in ("test_questions", "test_answers", "test_result"):
+                st.session_state.pop(key, None)
+            st.rerun()
+        return
+
+    st.subheader(f"Test ({len(questions)} questions)")
+    for i, q in enumerate(questions):
+        st.write(f"**Q{i + 1}.** {q['question']}")
+        answer = st.radio(f"q{i}", q["options"], key=f"test_q_{i}", label_visibility="collapsed")
+        st.session_state.test_answers[i] = answer[0]
+
+    if st.button("✅ Submit Test"):
+        answers = [st.session_state.test_answers.get(i, "A") for i in range(len(questions))]
+        st.session_state.test_result = quiz_svc.evaluate(questions, answers)
+        language_svc.update_streak(target_lang)
+        st.rerun()
+```
+
+- [x] **Step 4: Remove the Level Test section from Settings**
+
+Rewrite `ui/pages/settings.py` in full:
+
+```python
+import streamlit as st
+from ui.state import get
+
+SUPPORTED_LANGUAGES = {
+    "zh-TW": "繁體中文 (Traditional Chinese)",
+    "en": "English",
+    "ja": "日本語 (Japanese)",
+    "ko": "한국어 (Korean)",
+    "es": "Español (Spanish)",
+    "fr": "Français (French)",
+    "de": "Deutsch (German)",
+}
+
+
+def render() -> None:
+    st.title("⚙️ Settings")
+
+    language_svc = get("language_svc")
+    mm = get("mm")
+    native_lang, target_lang = language_svc.get_language_pair()
+
+    st.subheader("🌐 Language Pair")
+    lang_codes = list(SUPPORTED_LANGUAGES.keys())
+    lang_labels = list(SUPPORTED_LANGUAGES.values())
+
+    col1, col2 = st.columns(2)
+    with col1:
+        native_idx = lang_codes.index(native_lang) if native_lang in lang_codes else 0
+        new_native = st.selectbox("Native Language", lang_labels, index=native_idx)
+    with col2:
+        target_idx = lang_codes.index(target_lang) if target_lang in lang_codes else 2
+        new_target = st.selectbox("Learning Language", lang_labels, index=target_idx)
+
+    if st.button("💾 Save Language Settings"):
+        new_native_code = lang_codes[lang_labels.index(new_native)]
+        new_target_code = lang_codes[lang_labels.index(new_target)]
+        language_svc.set_language_pair(native=new_native_code, target=new_target_code)
+        st.success("Language settings saved!")
+        st.rerun()
+
+    st.divider()
+    st.subheader("🤖 Model Status")
+
+    for slot in ("llm", "vlm", "tts", "stt"):
+        available = mm.is_model_available(slot)
+        model_id = mm.config[slot]["model"]
+        icon = "✅" if available else "⬇️"
+        st.write(f"**{slot.upper()}** {icon} — `{model_id}`")
+        if not available:
+            st.code(mm.get_download_command(slot), language="bash")
+
+    st.divider()
+    st.subheader("⚠️ Danger Zone")
+    store = get("store")
+    st.caption(
+        f"Permanently delete all chats, word list, lessons, and progress for **{target_lang}**."
+    )
+
+    if not st.session_state.get("_confirm_clear"):
+        if st.button("🗑️ Clear All History", type="secondary"):
+            st.session_state._confirm_clear = True
+            st.rerun()
+    else:
+        st.warning(
+            "This will delete **all** chat history, saved words, lesson notes, and progress "
+            "for this language. This cannot be undone."
+        )
+        col_yes, col_no = st.columns([1, 3])
+        with col_yes:
+            if st.button("Yes, delete everything", type="primary"):
+                store.clear_language_history(target_lang)
+                for key in [
+                    "_confirm_clear",
+                    "active_lesson",
+                    "suggested_topics",
+                    "test_questions",
+                    "test_answers",
+                    "test_result",
+                ]:
+                    st.session_state.pop(key, None)
+                st.success("All history cleared.")
+                st.rerun()
+        with col_no:
+            if st.button("Cancel"):
+                st.session_state._confirm_clear = False
+                st.rerun()
+```
+
+- [x] **Step 5: Drop `level` from `ui/pages/chat.py`**
+
+In `ui/pages/chat.py`, remove:
+
+```python
+    level_data = store.load_level(target_lang)
+    level = level_data.get("level", "N4")
+
+```
+
+(the blank line that follows it stays), and in the `chat_svc.stream_message(...)` call, remove the `level=level,` line:
+
+```python
+        collector = chat_svc.stream_message(
+            lang=target_lang,
+            session_id=active_session,
+            native_lang=native_lang,
+            user_text=final_input,
+            image_path=image_path,
+        )
+```
+
+- [x] **Step 6: Drop `level` from `ui/pages/lesson.py`**
+
+Rewrite `ui/pages/lesson.py` in full:
+
+```python
+import streamlit as st
+from ui.state import get
+from ui.components.word_chip import render_word_chips
+from ui.components.stream_display import stream_with_thinking
+from ui.components.audio_controls import render_tts_button
+
+
+def render() -> None:
+    st.title("📝 Lesson")
+
+    language_svc = get("language_svc")
+    native_lang, target_lang = language_svc.get_language_pair()
+    lesson_svc = get("lesson_svc")
+
+    if "active_lesson" not in st.session_state:
+        _render_topic_picker(lesson_svc, target_lang, native_lang)
+    else:
+        _render_active_lesson(lesson_svc, language_svc, target_lang, native_lang)
+
+
+def _render_topic_picker(lesson_svc, target_lang, native_lang) -> None:
+    st.subheader("Choose a topic")
+
+    difficulty = st.select_slider("Difficulty", options=["Easy", "Normal", "Hard"], value="Normal")
+
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        custom_topic = st.text_input("Or enter a custom topic:", placeholder="e.g. ordering coffee")
+    with col2:
+        if st.button("🎲 Suggest Topics"):
+            with st.spinner("Getting suggestions..."):
+                st.session_state.suggested_topics = lesson_svc.suggest_topics(target_lang)
+
+    suggested = st.session_state.get("suggested_topics", [])
+    if suggested:
+        st.write("**Suggested topics:**")
+        cols = st.columns(min(len(suggested), 5))
+        for i, topic in enumerate(suggested):
+            with cols[i % 5]:
+                if st.button(topic, key=f"topic_{i}"):
+                    _start_lesson(lesson_svc, target_lang, native_lang, topic, difficulty)
+
+    if custom_topic and st.button("▶️ Start Lesson"):
+        _start_lesson(lesson_svc, target_lang, native_lang, custom_topic, difficulty)
+
+
+def _start_lesson(lesson_svc, target_lang, native_lang, topic, difficulty) -> None:
+    lesson_id, session_id, collector = lesson_svc.stream_start_lesson(
+        target_lang, native_lang, topic, difficulty=difficulty
+    )
+    with st.chat_message("assistant"):
+        stream_with_thinking(collector)
+    result = lesson_svc.commit_start_lesson(
+        target_lang, session_id, lesson_id, topic, collector.full_text
+    )
+    st.session_state.active_lesson = {
+        "lesson_id": lesson_id,
+        "session_id": session_id,
+        "topic": topic,
+        "difficulty": difficulty,
+        "phase": result["phase"],
+        "messages": [{"role": "assistant", "content": result["response"]}],
+        "word_suggestions": result.get("word_suggestions", []),
+    }
+    st.rerun()
+
+
+def _render_active_lesson(lesson_svc, language_svc, target_lang, native_lang) -> None:
+    lesson = st.session_state.active_lesson
+    topic = lesson["topic"]
+    phase = lesson["phase"]
+    phase_label = "📖 Structured Lesson" if phase == "structured" else "💬 Free Conversation"
+
+    col1, col2, col3 = st.columns([4, 2, 1])
+    with col1:
+        st.subheader(f"Topic: {topic} — {phase_label}")
+    with col2:
+        if phase == "structured":
+            if st.button("➡️ Move to Free Conversation"):
+                lesson["phase"] = "conversation"
+                st.rerun()
+    with col3:
+        if st.button("✅ Finish"):
+            lesson_svc.finish_lesson(target_lang, topic)
+            language_svc.update_streak(target_lang)
+            del st.session_state.active_lesson
+            st.session_state.pop("suggested_topics", None)
+            st.rerun()
+
+    for msg in lesson["messages"]:
+        with st.chat_message(msg["role"]):
+            st.write(msg["content"])
+            if msg["role"] == "assistant":
+                render_tts_button(msg["content"], lang=target_lang, key=msg["content"][:20])
+
+    render_word_chips(lesson.get("word_suggestions", []), lang=target_lang, native_lang=native_lang)
+
+    user_input = st.chat_input("Your response...")
+    if user_input:
+        lesson["messages"].append({"role": "user", "content": user_input})
+        with st.chat_message("user"):
+            st.write(user_input)
+
+        collector = lesson_svc.stream_continue_lesson(
+            target_lang=target_lang,
+            session_id=lesson["session_id"],
+            native_lang=native_lang,
+            topic=topic,
+            phase=lesson["phase"],
+            difficulty=lesson["difficulty"],
+            user_text=user_input,
+        )
+        with st.chat_message("assistant"):
+            stream_with_thinking(collector)
+            render_tts_button(collector.full_text, lang=target_lang, key="lesson_latest")
+        result = lesson_svc.commit_continue_lesson(
+            target_lang=target_lang,
+            session_id=lesson["session_id"],
+            lesson_id=lesson["lesson_id"],
+            user_text=user_input,
+            raw_response=collector.full_text,
+            phase=lesson["phase"],
+        )
+
+        lesson["messages"].append({"role": "assistant", "content": result["response"]})
+        lesson["word_suggestions"] = result.get("word_suggestions", [])
+        st.rerun()
+```
+
+- [x] **Step 7: Drop `level` from the Word List sentence-construction review**
+
+In `ui/pages/word_list.py`, inside `_render_review`'s `elif mode == "Sentence construction":` block, replace:
+
+```python
+        if st.button("Submit for feedback"):
+            chat_svc = get("chat_svc")
+            language_svc = get("language_svc")
+            native_lang_local, target_lang_local = language_svc.get_language_pair()
+            store = get("store")
+            level_data = store.load_level(target_lang)
+            level = level_data.get("level", "N4")
+            tmp_session = store.create_chat_session(target_lang, "_review_tmp")
+            result = chat_svc.send_message(
+                lang=target_lang,
+                session_id=tmp_session,
+                native_lang=native_lang_local,
+                level=level,
+                user_text=f"Please evaluate this sentence using the word {word['word']}: {user_sentence}",
+                image_path=None,
+            )
+            store.delete_chat_session(target_lang, tmp_session)
+```
+
+with:
+
+```python
+        if st.button("Submit for feedback"):
+            chat_svc = get("chat_svc")
+            language_svc = get("language_svc")
+            native_lang_local, target_lang_local = language_svc.get_language_pair()
+            store = get("store")
+            tmp_session = store.create_chat_session(target_lang, "_review_tmp")
+            result = chat_svc.send_message(
+                lang=target_lang,
+                session_id=tmp_session,
+                native_lang=native_lang_local,
+                user_text=f"Please evaluate this sentence using the word {word['word']}: {user_sentence}",
+                image_path=None,
+            )
+            store.delete_chat_session(target_lang, tmp_session)
+```
+
+- [x] **Step 8: Remove the level suffix from the Home subheader**
+
+In `ui/pages/home.py`, replace:
+
+```python
+    st.subheader(f"Learning **{target_name}** · {stats['level'] or 'Level not set'}")
+```
+
+with:
+
+```python
+    st.subheader(f"Learning **{target_name}**")
+```
+
+- [x] **Step 9: Manually verify the UI**
+
+Run: `make run`
+
+In the browser: confirm the sidebar shows a "🧪 Test" entry between "Word List" and "Settings"; open it, click "Generate Test", answer the questions, submit, and confirm you see a score with per-question explanations and no level/proficiency label anywhere. Open "Settings" and confirm the Level Test section is gone. Open "Home" and confirm the subheader no longer shows a level suffix. Open "Chat" and "Lesson" and confirm they still work (send a message / start a lesson).
+
+Do not commit yet — continue to Task 29.
+
+### Task 29: Final verification, commit, push
+
+**Files:** none (verification + git only)
+
+- [x] **Step 1: Run the full test suite**
+
+Run: `make test`
+Expected: all tests pass, 0 failed
+
+- [x] **Step 2: Run lint**
+
+Run: `make lint`
+Expected: no errors
+
+- [x] **Step 3: Check off Tasks 27–28 above and fill in commit hash placeholders**
+
+Change every `- [x]` under Tasks 27 and 28 in this file to `- [x]`.
+
+- [x] **Step 4: Commit**
+
+```bash
+git add data_store/data_store.py tests/test_data_store.py \
+  services/language_service.py tests/test_language_service.py \
+  services/prompt_builder.py tests/test_prompt_builder.py \
+  services/chat_service.py tests/test_chat_service.py \
+  services/lesson_service.py tests/test_lesson_service.py \
+  services/quiz_service.py tests/test_quiz_service.py \
+  ui/state.py ui/app.py ui/pages/test.py ui/pages/settings.py \
+  ui/pages/chat.py ui/pages/lesson.py ui/pages/word_list.py ui/pages/home.py \
+  docs/superpowers/plans/2026-07-05-language-tutor.md
+git rm services/level_test_service.py tests/test_level_test_service.py
+git commit -m "$(cat <<'EOF'
+feat: move Test out of Settings into its own nav section; drop the level concept
+
+The level test previously lived inside Settings, scored answers against
+JLPT/HSK/TOPIK/CEFR tables, and fed that level into Chat, Lesson, and Word
+List personalization plus a Home subheader. It's now a standalone "Test"
+nav entry that just grades a random practice quiz (score only, nothing
+persisted) — the level concept is removed end-to-end so nothing is left
+silently pinned to a stale default.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+EOF
+)"
+```
+
+- [x] **Step 5: Push**
+
+```bash
+git push origin main
+```

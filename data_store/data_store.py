@@ -29,14 +29,14 @@ class DataStore:
         d.mkdir(parents=True, exist_ok=True)
         return d
 
-    def load_level(self, lang: str) -> dict:
-        path = self._progress_dir(lang) / "level.json"
+    def load_streak(self, lang: str) -> dict:
+        path = self._progress_dir(lang) / "streak.json"
         if not path.exists():
             return {}
         return json.loads(path.read_text(encoding="utf-8"))
 
-    def save_level(self, lang: str, data: dict) -> None:
-        path = self._progress_dir(lang) / "level.json"
+    def save_streak(self, lang: str, data: dict) -> None:
+        path = self._progress_dir(lang) / "streak.json"
         path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
     def load_lessons_progress(self, lang: str) -> dict:

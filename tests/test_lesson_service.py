@@ -14,7 +14,7 @@ def _make_svc(tmp_store, mock_llm):
 def test_suggest_topics(tmp_store, mock_llm):
     mock_llm.generate.return_value = json.dumps(["Food", "Travel", "Shopping", "Weather", "Family"])
     svc = _make_svc(tmp_store, mock_llm)
-    topics = svc.suggest_topics("ja", "N4")
+    topics = svc.suggest_topics("ja")
     assert len(topics) == 5
     assert "Food" in topics
 
@@ -22,7 +22,7 @@ def test_suggest_topics(tmp_store, mock_llm):
 def test_start_lesson_creates_session(tmp_store, mock_llm):
     mock_llm.generate.return_value = "Let's start with vocabulary for food..."
     svc = _make_svc(tmp_store, mock_llm)
-    result = svc.start_lesson("ja", "zh-TW", "N4", "Food", difficulty="Normal")
+    result = svc.start_lesson("ja", "zh-TW", "Food", difficulty="Normal")
     assert "lesson_id" in result
     assert "session_id" in result
     assert "response" in result
@@ -41,7 +41,6 @@ def test_continue_lesson_structured(tmp_store, mock_llm):
         session_id,
         lesson_id,
         "zh-TW",
-        "N4",
         "Food",
         phase="structured",
         difficulty="Normal",

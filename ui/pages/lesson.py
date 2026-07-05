@@ -11,17 +11,14 @@ def render() -> None:
     language_svc = get("language_svc")
     native_lang, target_lang = language_svc.get_language_pair()
     lesson_svc = get("lesson_svc")
-    store = get("store")
-    level_data = store.load_level(target_lang)
-    level = level_data.get("level", "N4")
 
     if "active_lesson" not in st.session_state:
-        _render_topic_picker(lesson_svc, target_lang, native_lang, level)
+        _render_topic_picker(lesson_svc, target_lang, native_lang)
     else:
-        _render_active_lesson(lesson_svc, language_svc, target_lang, native_lang, level)
+        _render_active_lesson(lesson_svc, language_svc, target_lang, native_lang)
 
 
-def _render_topic_picker(lesson_svc, target_lang, native_lang, level) -> None:
+def _render_topic_picker(lesson_svc, target_lang, native_lang) -> None:
     st.subheader("Choose a topic")
 
     difficulty = st.select_slider("Difficulty", options=["Easy", "Normal", "Hard"], value="Normal")
@@ -32,7 +29,7 @@ def _render_topic_picker(lesson_svc, target_lang, native_lang, level) -> None:
     with col2:
         if st.button("🎲 Suggest Topics"):
             with st.spinner("Getting suggestions..."):
-                st.session_state.suggested_topics = lesson_svc.suggest_topics(target_lang, level)
+                st.session_state.suggested_topics = lesson_svc.suggest_topics(target_lang)
 
     suggested = st.session_state.get("suggested_topics", [])
     if suggested:
@@ -41,15 +38,15 @@ def _render_topic_picker(lesson_svc, target_lang, native_lang, level) -> None:
         for i, topic in enumerate(suggested):
             with cols[i % 5]:
                 if st.button(topic, key=f"topic_{i}"):
-                    _start_lesson(lesson_svc, target_lang, native_lang, level, topic, difficulty)
+                    _start_lesson(lesson_svc, target_lang, native_lang, topic, difficulty)
 
     if custom_topic and st.button("▶️ Start Lesson"):
-        _start_lesson(lesson_svc, target_lang, native_lang, level, custom_topic, difficulty)
+        _start_lesson(lesson_svc, target_lang, native_lang, custom_topic, difficulty)
 
 
-def _start_lesson(lesson_svc, target_lang, native_lang, level, topic, difficulty) -> None:
+def _start_lesson(lesson_svc, target_lang, native_lang, topic, difficulty) -> None:
     lesson_id, session_id, collector = lesson_svc.stream_start_lesson(
-        target_lang, native_lang, level, topic, difficulty=difficulty
+        target_lang, native_lang, topic, difficulty=difficulty
     )
     with st.chat_message("assistant"):
         stream_with_thinking(collector)
@@ -68,7 +65,7 @@ def _start_lesson(lesson_svc, target_lang, native_lang, level, topic, difficulty
     st.rerun()
 
 
-def _render_active_lesson(lesson_svc, language_svc, target_lang, native_lang, level) -> None:
+def _render_active_lesson(lesson_svc, language_svc, target_lang, native_lang) -> None:
     lesson = st.session_state.active_lesson
     topic = lesson["topic"]
     phase = lesson["phase"]
@@ -108,7 +105,6 @@ def _render_active_lesson(lesson_svc, language_svc, target_lang, native_lang, le
             target_lang=target_lang,
             session_id=lesson["session_id"],
             native_lang=native_lang,
-            level=level,
             topic=topic,
             phase=lesson["phase"],
             difficulty=lesson["difficulty"],

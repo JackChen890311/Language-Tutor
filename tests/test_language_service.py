@@ -17,25 +17,6 @@ def test_default_language_pair(tmp_store):
     assert target == "ja"
 
 
-def test_get_proficiency_framework_japanese(tmp_store):
-    svc = LanguageService(tmp_store)
-    framework = svc.get_proficiency_framework("ja")
-    assert framework["name"] == "JLPT"
-    assert "N5" in framework["levels"]
-
-
-def test_get_proficiency_framework_chinese(tmp_store):
-    svc = LanguageService(tmp_store)
-    framework = svc.get_proficiency_framework("zh")
-    assert framework["name"] == "HSK"
-
-
-def test_get_proficiency_framework_fallback(tmp_store):
-    svc = LanguageService(tmp_store)
-    framework = svc.get_proficiency_framework("es")
-    assert framework["name"] == "CEFR"
-
-
 def test_update_streak_first_day(tmp_store):
     svc = LanguageService(tmp_store)
     svc.update_streak("ja")
@@ -48,7 +29,6 @@ def test_get_stats_defaults(tmp_store):
     stats = svc.get_stats("ja")
     assert stats["words_saved"] == 0
     assert stats["lessons_completed"] == 0
-    assert stats["level"] == ""
 
 
 def test_update_streak_same_day_no_double_count(tmp_store):
@@ -78,9 +58,3 @@ def test_update_streak_gap_resets(tmp_store):
         svc.update_streak("ja")
         stats = svc.get_stats("ja")
         assert stats["streak"] == 1
-
-
-def test_get_proficiency_framework_zh_tw(tmp_store):
-    svc = LanguageService(tmp_store)
-    framework = svc.get_proficiency_framework("zh-TW")
-    assert framework["name"] == "HSK"
