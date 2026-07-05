@@ -48,19 +48,22 @@ class PromptBuilder:
             f"{self._chinese_rule(native_lang)}"
         )
 
-    def test_system_prompt(self, target_lang: str, n_questions: int = 8) -> str:
+    def test_system_prompt(self, native_lang: str, target_lang: str, n_questions: int = 8) -> str:
         return (
             f"You are creating a {self._lang_name(target_lang)} ({target_lang}) "
             f"practice quiz.\n\n"
             f"Generate exactly {n_questions} multiple choice questions covering vocabulary, "
             f"grammar, and reading comprehension.\n\n"
+            f"For each question, write two explanations of why the correct answer is right: "
+            f"one in {self._lang_name(target_lang)}, one in {self._lang_name(native_lang)}.\n\n"
             f"Respond ONLY with a JSON array, no other text:\n"
             f"[\n"
             f"  {{\n"
             f'    "question": "...",\n'
             f'    "options": ["A) ...", "B) ...", "C) ...", "D) ..."],\n'
             f'    "correct": "A",\n'
-            f'    "explanation": "..."\n'
+            f'    "explanation_target": "... (in {self._lang_name(target_lang)})",\n'
+            f'    "explanation_native": "... (in {self._lang_name(native_lang)})"\n'
             f"  }}\n"
             f"]\n"
         )

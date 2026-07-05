@@ -24,7 +24,7 @@ def init_services() -> None:
     st.session_state.chat_svc = ChatService(store, mm, pb, memory_svc)
     st.session_state.word_svc = WordListService(store, mm, pb)
     st.session_state.lesson_svc = LessonService(store, mm, pb)
-    st.session_state.quiz_svc = QuizService(mm, pb)
+    st.session_state.quiz_svc = QuizService(store, mm, pb)
 
 
 def get(key: str):

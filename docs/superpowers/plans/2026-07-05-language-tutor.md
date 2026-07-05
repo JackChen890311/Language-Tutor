@@ -1595,3 +1595,484 @@ EOF
 ```bash
 git push origin main
 ```
+
+---
+
+## Update: Stream test generation, bilingual explanations, persisted test history
+
+> See `docs/superpowers/specs/2026-07-05-language-tutor-design.md` (final section) for the design rationale.
+>
+> **For agentic workers:** REQUIRED SUB-SKILL: use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to run Tasks 30–32 below.
+>
+> **Commit strategy:** Task 30's steps run only their own scoped test files (`test_system_prompt`'s new required `native_lang` param only has one caller — `QuizService`, rewritten later in the same task — so nothing else breaks mid-task). Task 31 has no automated tests (this repo's `tests/` suite only covers `services/`/`data_store/`, not `ui/pages/`). **Do not `git commit` after Task 30 or Task 31** — Task 32 runs the full suite and does the single commit + push for this whole update.
+
+### Task 30: Stream generation, bilingual explanations, persisted history in the service layer
+
+**Files:**
+- Modify: `data_store/data_store.py` (add `load_quiz_history`/`append_quiz_result`)
+- Modify: `tests/test_data_store.py`
+- Modify: `services/prompt_builder.py` (`test_system_prompt` gains `native_lang` param and requests bilingual explanations)
+- Modify: `tests/test_prompt_builder.py`
+- Modify: `services/quiz_service.py` (constructor regains a `store` param; `generate_questions` splits into `stream_questions` + `parse_questions`; `evaluate` gains `target_lang`, builds a per-question breakdown, and persists it)
+- Modify: `tests/test_quiz_service.py`
+
+**Interfaces:**
+- Produces: `DataStore.load_quiz_history(lang) -> list[dict]`, `DataStore.append_quiz_result(lang, result) -> None`
+- Produces: `PromptBuilder.test_system_prompt(native_lang, target_lang, n_questions=8) -> str`
+- Produces: `QuizService(store, model_manager, prompt_builder)` with `.stream_questions(native_lang, target_lang, n_questions=8) -> StreamCollector`, `.parse_questions(raw: str) -> list[dict]`, `.evaluate(questions, answers, target_lang) -> dict` (returns `{id, tested_at, score, correct, total, questions: [{question, options, correct, given, is_correct, explanation_target, explanation_native}, ...]}`, and persists that dict via `append_quiz_result`)
+- Consumes: `StreamCollector` from `services/chat_service.py` (already used by `ChatService`/`LessonService` — no changes to it)
+
+- [x] **Step 1: Add quiz history storage to `DataStore`**
+
+Edit `data_store/data_store.py`. Add these two methods directly after `save_streak` (before `load_lessons_progress`):
+
+```python
+    def load_quiz_history(self, lang: str) -> list[dict]:
+        path = self._progress_dir(lang) / "quiz_history.json"
+        if not path.exists():
+            return []
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def append_quiz_result(self, lang: str, result: dict) -> None:
+        history = self.load_quiz_history(lang)
+        history.append(result)
+        path = self._progress_dir(lang) / "quiz_history.json"
+        path.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
+```
+
+- [x] **Step 2: Add the DataStore tests**
+
+Add to `tests/test_data_store.py`:
+
+```python
+def test_quiz_history_empty_when_missing(tmp_store):
+    assert tmp_store.load_quiz_history("ja") == []
+
+
+def test_quiz_history_round_trip(tmp_store):
+    tmp_store.append_quiz_result("ja", {"id": "abc123", "score": 100})
+    tmp_store.append_quiz_result("ja", {"id": "def456", "score": 50})
+    history = tmp_store.load_quiz_history("ja")
+    assert len(history) == 2
+    assert history[0]["id"] == "abc123"
+    assert history[1]["score"] == 50
+```
+
+- [x] **Step 3: Run the DataStore tests**
+
+Run: `uv run pytest tests/test_data_store.py -v`
+Expected: PASS (all tests, including the two new ones)
+
+- [x] **Step 4: Add `native_lang` and bilingual explanations to the test prompt**
+
+In `services/prompt_builder.py`, replace:
+
+```python
+    def test_system_prompt(self, target_lang: str, n_questions: int = 8) -> str:
+        return (
+            f"You are creating a {self._lang_name(target_lang)} ({target_lang}) "
+            f"practice quiz.\n\n"
+            f"Generate exactly {n_questions} multiple choice questions covering vocabulary, "
+            f"grammar, and reading comprehension.\n\n"
+            f"Respond ONLY with a JSON array, no other text:\n"
+            f"[\n"
+            f"  {{\n"
+            f'    "question": "...",\n'
+            f'    "options": ["A) ...", "B) ...", "C) ...", "D) ..."],\n'
+            f'    "correct": "A",\n'
+            f'    "explanation": "..."\n'
+            f"  }}\n"
+            f"]\n"
+        )
+```
+
+with:
+
+```python
+    def test_system_prompt(self, native_lang: str, target_lang: str, n_questions: int = 8) -> str:
+        return (
+            f"You are creating a {self._lang_name(target_lang)} ({target_lang}) "
+            f"practice quiz.\n\n"
+            f"Generate exactly {n_questions} multiple choice questions covering vocabulary, "
+            f"grammar, and reading comprehension.\n\n"
+            f"For each question, write two explanations of why the correct answer is right: "
+            f"one in {self._lang_name(target_lang)}, one in {self._lang_name(native_lang)}.\n\n"
+            f"Respond ONLY with a JSON array, no other text:\n"
+            f"[\n"
+            f"  {{\n"
+            f'    "question": "...",\n'
+            f'    "options": ["A) ...", "B) ...", "C) ...", "D) ..."],\n'
+            f'    "correct": "A",\n'
+            f'    "explanation_target": "... (in {self._lang_name(target_lang)})",\n'
+            f'    "explanation_native": "... (in {self._lang_name(native_lang)})"\n'
+            f"  }}\n"
+            f"]\n"
+        )
+```
+
+- [x] **Step 5: Update the PromptBuilder test**
+
+In `tests/test_prompt_builder.py`, replace:
+
+```python
+def test_test_prompt_includes_target_lang():
+    pb = PromptBuilder()
+    prompt = pb.test_system_prompt(target_lang="ja", n_questions=5)
+    assert "ja" in prompt or "Japanese" in prompt
+    assert "5" in prompt
+    assert "JSON" in prompt
+```
+
+with:
+
+```python
+def test_test_prompt_includes_target_lang():
+    pb = PromptBuilder()
+    prompt = pb.test_system_prompt(native_lang="zh-TW", target_lang="ja", n_questions=5)
+    assert "ja" in prompt or "Japanese" in prompt
+    assert "5" in prompt
+    assert "JSON" in prompt
+
+
+def test_test_prompt_requests_bilingual_explanations():
+    pb = PromptBuilder()
+    prompt = pb.test_system_prompt(native_lang="zh-TW", target_lang="ja", n_questions=5)
+    assert "explanation_target" in prompt
+    assert "explanation_native" in prompt
+    assert "Traditional Chinese" in prompt or "zh-TW" in prompt
+```
+
+- [x] **Step 6: Run the PromptBuilder tests**
+
+Run: `uv run pytest tests/test_prompt_builder.py -v`
+Expected: PASS
+
+- [x] **Step 7: Rewrite `QuizService` for streaming, bilingual data, and persisted history**
+
+Rewrite `services/quiz_service.py` in full:
+
+```python
+import json
+import uuid
+from datetime import datetime
+
+from data_store.data_store import DataStore
+from model_manager import ModelManager
+from services.chat_service import StreamCollector
+from services.prompt_builder import PromptBuilder
+
+
+class QuizService:
+    def __init__(
+        self, store: DataStore, model_manager: ModelManager, prompt_builder: PromptBuilder
+    ):
+        self._store = store
+        self._mm = model_manager
+        self._pb = prompt_builder
+
+    def stream_questions(
+        self, native_lang: str, target_lang: str, n_questions: int = 8
+    ) -> StreamCollector:
+        system_prompt = self._pb.test_system_prompt(native_lang, target_lang, n_questions)
+        llm = self._mm.get_llm()
+        return StreamCollector(
+            llm.stream(
+                [{"role": "user", "content": "Generate the test questions now."}],
+                system_prompt=system_prompt,
+                enable_thinking=False,
+            )
+        )
+
+    def parse_questions(self, raw: str) -> list[dict]:
+        raw = raw.strip()
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"LLM returned invalid JSON for test: {e}") from e
+
+    def evaluate(self, questions: list[dict], answers: list[str], target_lang: str) -> dict:
+        breakdown = []
+        correct_count = 0
+        for q, given in zip(questions, answers):
+            is_correct = q["correct"] == given
+            correct_count += int(is_correct)
+            breakdown.append(
+                {
+                    "question": q["question"],
+                    "options": q["options"],
+                    "correct": q["correct"],
+                    "given": given,
+                    "is_correct": is_correct,
+                    "explanation_target": q.get("explanation_target", ""),
+                    "explanation_native": q.get("explanation_native", ""),
+                }
+            )
+        score = round(correct_count / len(questions) * 100) if questions else 0
+        result = {
+            "id": uuid.uuid4().hex[:8],
+            "tested_at": datetime.now().isoformat(),
+            "score": score,
+            "correct": correct_count,
+            "total": len(questions),
+            "questions": breakdown,
+        }
+        self._store.append_quiz_result(target_lang, result)
+        return result
+```
+
+- [x] **Step 8: Rewrite the QuizService tests**
+
+Rewrite `tests/test_quiz_service.py` in full:
+
+```python
+import json
+from unittest.mock import MagicMock
+from services.quiz_service import QuizService
+from services.prompt_builder import PromptBuilder
+
+
+def _make_svc(tmp_store, mock_llm):
+    pb = PromptBuilder()
+    mm = MagicMock()
+    mm.get_llm.return_value = mock_llm
+    return QuizService(tmp_store, mm, pb)
+
+
+def _mock_questions():
+    return json.dumps(
+        [
+            {
+                "question": "What does 食べる mean?",
+                "options": ["A) to eat", "B) to drink", "C) to sleep", "D) to walk"],
+                "correct": "A",
+                "explanation_target": "食べるは食べることを意味します。",
+                "explanation_native": "食べる的意思是吃。",
+            },
+            {
+                "question": "Which particle marks the subject?",
+                "options": ["A) を", "B) に", "C) が", "D) で"],
+                "correct": "C",
+                "explanation_target": "がは主語を示します。",
+                "explanation_native": "が用來標示主語。",
+            },
+        ]
+    )
+
+
+def test_stream_questions_then_parse(tmp_store, mock_llm):
+    mock_llm.stream.return_value = iter([_mock_questions()])
+    svc = _make_svc(tmp_store, mock_llm)
+    collector = svc.stream_questions("zh-TW", "ja")
+    list(collector)  # consume the stream, filling collector.full_text
+    questions = svc.parse_questions(collector.full_text)
+    assert len(questions) == 2
+    assert questions[0]["question"] == "What does 食べる mean?"
+
+
+def test_parse_questions_strips_code_fence(tmp_store, mock_llm):
+    svc = _make_svc(tmp_store, mock_llm)
+    fenced = f"```json\n{_mock_questions()}\n```"
+    questions = svc.parse_questions(fenced)
+    assert len(questions) == 2
+
+
+def test_evaluate_perfect_score(tmp_store, mock_llm):
+    svc = _make_svc(tmp_store, mock_llm)
+    questions = svc.parse_questions(_mock_questions())
+    result = svc.evaluate(questions, ["A", "C"], "ja")
+    assert result["score"] == 100
+    assert result["correct"] == 2
+    assert result["total"] == 2
+    assert result["questions"][0]["is_correct"] is True
+    assert result["questions"][0]["explanation_native"] == "食べる的意思是吃。"
+
+
+def test_evaluate_zero_score(tmp_store, mock_llm):
+    svc = _make_svc(tmp_store, mock_llm)
+    questions = svc.parse_questions(_mock_questions())
+    result = svc.evaluate(questions, ["B", "A"], "ja")
+    assert result["score"] == 0
+    assert result["questions"][0]["is_correct"] is False
+
+
+def test_evaluate_persists_to_history(tmp_store, mock_llm):
+    svc = _make_svc(tmp_store, mock_llm)
+    questions = svc.parse_questions(_mock_questions())
+    result = svc.evaluate(questions, ["A", "C"], "ja")
+    history = tmp_store.load_quiz_history("ja")
+    assert len(history) == 1
+    assert history[0]["id"] == result["id"]
+    assert history[0]["score"] == 100
+```
+
+- [x] **Step 9: Run the QuizService tests**
+
+Run: `uv run pytest tests/test_quiz_service.py -v`
+Expected: PASS
+
+Do not commit yet — continue to Task 31.
+
+### Task 31: Wire streaming, bilingual review, and history into the Test page
+
+**Files:**
+- Modify: `ui/state.py` (`QuizService` now takes `store` as its first constructor argument)
+- Modify: `ui/pages/test.py` (streaming generation, bilingual review, Past Attempts section)
+
+**Interfaces:**
+- Consumes: `QuizService(store, model_manager, prompt_builder)` from Task 30, with `.stream_questions(native_lang, target_lang, n_questions=8)`, `.parse_questions(raw)`, `.evaluate(questions, answers, target_lang)`
+- Consumes: `stream_with_thinking(collector)` from `ui/components/stream_display.py` (already used by Lesson — unchanged)
+- Consumes: `DataStore.load_quiz_history(lang)` from Task 30
+
+No new automated tests in this task, matching this repo's existing convention — `tests/` covers `services/`/`data_store/` only, not `ui/pages/`. Verify with `make run` (Step 3).
+
+- [x] **Step 1: Pass `store` into `QuizService` in `ui/state.py`**
+
+In `ui/state.py`, replace:
+
+```python
+    st.session_state.quiz_svc = QuizService(mm, pb)
+```
+
+with:
+
+```python
+    st.session_state.quiz_svc = QuizService(store, mm, pb)
+```
+
+- [x] **Step 2: Rewrite the Test page**
+
+Rewrite `ui/pages/test.py` in full:
+
+```python
+import streamlit as st
+from ui.state import get
+from ui.components.stream_display import stream_with_thinking
+
+
+def render() -> None:
+    st.title("🧪 Test")
+    st.caption("Practice with a random quiz — no proficiency level involved.")
+
+    language_svc = get("language_svc")
+    quiz_svc = get("quiz_svc")
+    store = get("store")
+    native_lang, target_lang = language_svc.get_language_pair()
+
+    if st.button("🎲 Generate Test"):
+        collector = quiz_svc.stream_questions(native_lang, target_lang)
+        stream_with_thinking(collector)
+        st.session_state.test_questions = quiz_svc.parse_questions(collector.full_text)
+        st.session_state.test_answers = {}
+        st.session_state.pop("test_result", None)
+        st.rerun()
+
+    questions = st.session_state.get("test_questions")
+    result = st.session_state.get("test_result")
+
+    if questions and not result:
+        st.subheader(f"Test ({len(questions)} questions)")
+        for i, q in enumerate(questions):
+            st.write(f"**Q{i + 1}.** {q['question']}")
+            answer = st.radio(
+                f"q{i}", q["options"], key=f"test_q_{i}", label_visibility="collapsed"
+            )
+            st.session_state.test_answers[i] = answer[0]
+
+        if st.button("✅ Submit Test"):
+            answers = [st.session_state.test_answers.get(i, "A") for i in range(len(questions))]
+            st.session_state.test_result = quiz_svc.evaluate(questions, answers, target_lang)
+            language_svc.update_streak(target_lang)
+            st.rerun()
+        return
+
+    if result:
+        st.success(f"Score: **{result['correct']}/{result['total']}** ({result['score']}%)")
+        _render_review(result["questions"])
+        if st.button("🔄 Try Another Test"):
+            for key in ("test_questions", "test_answers", "test_result"):
+                st.session_state.pop(key, None)
+            st.rerun()
+
+    _render_history(store, target_lang)
+
+
+def _render_review(questions: list[dict]) -> None:
+    for i, q in enumerate(questions):
+        icon = "✅" if q["is_correct"] else "❌"
+        st.write(f"{icon} **Q{i + 1}.** {q['question']}")
+        st.caption(f"Correct answer: {q['correct']}")
+        st.caption(f"🎯 {q.get('explanation_target', '')}")
+        st.caption(f"🏠 {q.get('explanation_native', '')}")
+
+
+def _render_history(store, target_lang: str) -> None:
+    history = store.load_quiz_history(target_lang)
+    st.divider()
+    st.subheader("📜 Past Attempts")
+    if not history:
+        st.info("No attempts yet — click **Generate Test** above to start.")
+        return
+    for attempt in reversed(history):
+        label = (
+            f"{attempt['tested_at'][:16].replace('T', ' ')} — "
+            f"{attempt['score']}% ({attempt['correct']}/{attempt['total']})"
+        )
+        with st.expander(label):
+            _render_review(attempt["questions"])
+```
+
+- [x] **Step 3: Manually verify the UI**
+
+Run: `make run`
+
+In the browser: open "Test", click "Generate Test", and confirm you see the thinking-dots animation followed by streaming JSON text before the quiz questions appear. Answer and submit; confirm the result shows a score plus, per question, both a 🎯 target-language and a 🏠 native-language explanation line. Scroll down and confirm a "📜 Past Attempts" section lists the attempt you just took, expandable to the same review. Click "Generate Test" again, take a second quiz, and confirm both attempts now appear in Past Attempts (most recent first).
+
+Do not commit yet — continue to Task 32.
+
+### Task 32: Final verification, commit, push
+
+**Files:** none (verification + git only)
+
+- [x] **Step 1: Run the full test suite**
+
+Run: `make test`
+Expected: all tests pass, 0 failed
+
+- [x] **Step 2: Run lint**
+
+Run: `make lint`
+Expected: no new errors (the 2 pre-existing unused-import warnings in `ui/pages/chat.py` and `ui/pages/word_list.py` are unrelated to this change — leave them)
+
+- [x] **Step 3: Check off Tasks 30–31 above**
+
+Change every `- [x]` under Tasks 30 and 31 in this file to `- [x]`.
+
+- [x] **Step 4: Commit**
+
+```bash
+git add data_store/data_store.py tests/test_data_store.py \
+  services/prompt_builder.py tests/test_prompt_builder.py \
+  services/quiz_service.py tests/test_quiz_service.py \
+  ui/state.py ui/pages/test.py \
+  docs/superpowers/plans/2026-07-05-language-tutor.md
+git commit -m "$(cat <<'EOF'
+feat: stream test generation, add bilingual explanations, persist test history
+
+Quiz generation now streams live (thinking dots -> streaming JSON,
+matching Chat/Lesson) instead of blocking behind a spinner. Each
+question's explanation is written in both the target and native
+language. Every graded attempt is now saved with a full per-question
+breakdown and shown in a new Past Attempts section on the Test page.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+EOF
+)"
+```
+
+- [x] **Step 5: Push**
+
+```bash
+git push origin main
+```

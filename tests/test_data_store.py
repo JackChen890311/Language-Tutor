@@ -15,6 +15,19 @@ def test_streak_round_trip(tmp_store):
     assert result["streak"] == 3
 
 
+def test_quiz_history_empty_when_missing(tmp_store):
+    assert tmp_store.load_quiz_history("ja") == []
+
+
+def test_quiz_history_round_trip(tmp_store):
+    tmp_store.append_quiz_result("ja", {"id": "abc123", "score": 100})
+    tmp_store.append_quiz_result("ja", {"id": "def456", "score": 50})
+    history = tmp_store.load_quiz_history("ja")
+    assert len(history) == 2
+    assert history[0]["id"] == "abc123"
+    assert history[1]["score"] == 50
+
+
 def test_create_and_list_chat_sessions(tmp_store):
     session_id = tmp_store.create_chat_session("ja", "Shopping trip")
     sessions = tmp_store.list_chat_sessions("ja")

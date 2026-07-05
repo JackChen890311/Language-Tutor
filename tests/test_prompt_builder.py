@@ -23,10 +23,18 @@ def test_chat_prompt_english_native_no_chinese_rule():
 
 def test_test_prompt_includes_target_lang():
     pb = PromptBuilder()
-    prompt = pb.test_system_prompt(target_lang="ja", n_questions=5)
+    prompt = pb.test_system_prompt(native_lang="zh-TW", target_lang="ja", n_questions=5)
     assert "ja" in prompt or "Japanese" in prompt
     assert "5" in prompt
     assert "JSON" in prompt
+
+
+def test_test_prompt_requests_bilingual_explanations():
+    pb = PromptBuilder()
+    prompt = pb.test_system_prompt(native_lang="zh-TW", target_lang="ja", n_questions=5)
+    assert "explanation_target" in prompt
+    assert "explanation_native" in prompt
+    assert "Traditional Chinese" in prompt or "zh-TW" in prompt
 
 
 def test_word_enrichment_prompt():

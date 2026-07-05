@@ -39,6 +39,18 @@ class DataStore:
         path = self._progress_dir(lang) / "streak.json"
         path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    def load_quiz_history(self, lang: str) -> list[dict]:
+        path = self._progress_dir(lang) / "quiz_history.json"
+        if not path.exists():
+            return []
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def append_quiz_result(self, lang: str, result: dict) -> None:
+        history = self.load_quiz_history(lang)
+        history.append(result)
+        path = self._progress_dir(lang) / "quiz_history.json"
+        path.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
+
     def load_lessons_progress(self, lang: str) -> dict:
         path = self._progress_dir(lang) / "lessons.json"
         if not path.exists():
