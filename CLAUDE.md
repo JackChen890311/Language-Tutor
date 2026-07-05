@@ -20,6 +20,7 @@ When the user asks for a new feature or nontrivial fix:
 2. Add a **new dated plan+spec pair** for today's date (`docs/superpowers/plans/YYYY-MM-DD-language-tutor.md` and the matching `specs/` file), following the format of the existing dated docs: the plan is a checked-off task list with commit hashes, the spec documents only what changed/why relative to the previous dated spec.
 3. Run the full test suite (`make test`) before committing.
 4. Commit the code and the new docs. Don't leave feature work uncommitted across sessions unless the user says otherwise.
+5. Push to `origin main`. Don't leave finished work unpushed unless the user says otherwise.
 
 Do not retroactively edit an already-committed dated doc for a past date — if you find something wrong in it, note the correction in the next new dated doc instead (look at the existing dated docs for examples of this pattern — a later date's spec calling out and fixing something a prior date's spec got wrong).
 
