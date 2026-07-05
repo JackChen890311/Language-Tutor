@@ -27,7 +27,7 @@ def test_get_download_command(config_file):
     mgr = ModelManager(config_file)
     cmd = mgr.get_download_command("llm")
     assert "mlx-community/Qwen3.6-35B-A3B-4bit" in cmd
-    assert "huggingface-cli" in cmd
+    assert "hf download" in cmd
 
 
 def test_check_model_available_missing(config_file):

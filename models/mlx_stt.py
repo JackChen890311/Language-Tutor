@@ -4,7 +4,7 @@ from models.base import BaseSTT
 
 
 class WhisperModel(BaseSTT):
-    def __init__(self, model_name: str = "whisper-large-v3"):
+    def __init__(self, model_name: str = "mlx-community/whisper-large-v3"):
         self._model_name = model_name
         self._model = None
 
@@ -31,9 +31,7 @@ class WhisperModel(BaseSTT):
                 audio_path = tmp_path
             else:
                 audio_path = audio
-            result = self._model.transcribe(
-                audio_path, path_or_hf_repo=f"mlx-community/{self._model_name}"
-            )
+            result = self._model.transcribe(audio_path, path_or_hf_repo=self._model_name)
             return result.get("text", "").strip()
         finally:
             if tmp_path:

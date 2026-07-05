@@ -16,7 +16,7 @@ _VOICE_MAP = {
 
 
 class MLXTTSModel(BaseTTS):
-    def __init__(self, model_name: str = "kokoro"):
+    def __init__(self, model_name: str = "prince-canuma/Kokoro-82M"):
         self._model_name = model_name
         self._model = None
 
@@ -24,7 +24,7 @@ class MLXTTSModel(BaseTTS):
         if self._model is None:
             from mlx_audio.tts.utils import load
 
-            self._model = load("prince-canuma/Kokoro-82M")
+            self._model = load(self._model_name)
 
     def load(self) -> None:
         self._ensure_loaded()

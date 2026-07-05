@@ -11,9 +11,9 @@ A local-first AI language tutor that runs entirely on Apple Silicon. No cloud, n
 - **Structured lessons** — vocabulary introduction, grammar explanation, and exercises, followed by free conversation
 - **AI chat** — real-time streaming conversation with word suggestions and correction
 - **Level test** — auto-generated multiple-choice quiz that maps your score to JLPT / HSK / TOPIK / CEFR
-- **Word list** — one-click save of suggested words with full AI enrichment (definitions, examples, conjugations, pitch accent, etc.)
+- **Word list** — one-click save of suggested words with full AI enrichment (translation, definitions, examples, conjugations, pitch accent, etc.)
 - **Rolling memory** — conversations summarize automatically as they grow, keeping context within token limits
-- **TTS playback** — hear any response or word pronounced (optional)
+- **TTS playback** — hear any response or word pronounced (optional); target-language sentences are auto-tagged and each gets its own autoplaying 🔊 button
 - **Voice input** — speak instead of type with Whisper STT (optional)
 - **Image chat** — attach a photo and ask questions about it via a vision-language model (optional)
 - **Progress tracking** — daily streak, weekly review count, proficiency level history
@@ -55,7 +55,7 @@ uv sync
 ### 2. Download the LLM (required)
 
 ```bash
-hfdownload mlx-community/Qwen3.6-35B-A3B-4bit
+hf download mlx-community/Qwen3.6-35B-A3B-4bit
 ```
 
 The LLM is the only required model. The others (VLM, TTS, STT) are optional and can be downloaded later from the Settings page.
@@ -76,9 +76,9 @@ Download any of these from **Settings → Model Status** to unlock additional fe
 
 | Feature | Model | Command |
 |---|---|---|
-| Image chat (VLM) | `mlx-community/Qwen3-VL-8B-Instruct` | `hfdownload mlx-community/Qwen3-VL-8B-Instruct` |
-| TTS playback | `kokoro` | `hfdownload prince-canuma/Kokoro-82M` |
-| Voice input (STT) | `whisper-large-v3` | `hfdownload mlx-community/whisper-large-v3` |
+| Image chat (VLM) | `mlx-community/Qwen3-VL-8B-Instruct` | `hf download mlx-community/Qwen3-VL-8B-Instruct` |
+| TTS playback | `prince-canuma/Kokoro-82M` | `hf download prince-canuma/Kokoro-82M` |
+| Voice input (STT) | `mlx-community/whisper-large-v3` | `hf download mlx-community/whisper-large-v3` |
 
 ---
 
@@ -90,12 +90,12 @@ Edit `config/models.json` to swap any model slot:
 {
   "llm": { "provider": "mlx", "model": "mlx-community/Qwen3.6-35B-A3B-4bit" },
   "vlm": { "provider": "mlx", "model": "mlx-community/Qwen3-VL-8B-Instruct" },
-  "tts": { "provider": "mlx-audio", "model": "kokoro" },
-  "stt": { "provider": "mlx-audio", "model": "whisper-large-v3" }
+  "tts": { "provider": "mlx-audio", "model": "prince-canuma/Kokoro-82M" },
+  "stt": { "provider": "mlx-audio", "model": "mlx-community/whisper-large-v3" }
 }
 ```
 
-Any `mlx-community` LLM model can be dropped in as a replacement.
+Any `mlx-community` LLM model can be dropped in as a replacement. The `model` value for every slot is the exact HF repo id passed straight through to the underlying loader — no hidden prefixing.
 
 ---
 
@@ -142,14 +142,9 @@ DataStore (local JSON + Markdown files)
 ## Development
 
 ```bash
-# Run tests
-uv run pytest
-
-# Lint
-uv run ruff check .
-
-# Format
-uv run ruff format .
+make run    # uv run streamlit run main.py
+make test   # uv run pytest
+make lint   # uv run ruff check . && uv run ruff format --check .
 ```
 
 ---
