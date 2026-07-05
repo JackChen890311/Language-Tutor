@@ -2076,3 +2076,16 @@ EOF
 ```bash
 git push origin main
 ```
+
+---
+
+## Fix: streaming quiz generation leaked answers and broke rendering
+
+See `docs/superpowers/specs/2026-07-05-language-tutor-design.md` (final section) for the root-cause writeup.
+
+- [x] **Step 1:** Diagnose — `stream_with_thinking` renders every accumulated chunk via `st.markdown`, which for Chat/Lesson is safe (prose) but for the quiz JSON exposed `"correct"` and both explanation fields live on screen, and raw JSON through Markdown mid-stream rendered garbled
+- [x] **Step 2:** Add `stream_silently(collector)` to `ui/components/stream_display.py` — same thinking-dots animation, drains the stream without ever displaying its content
+- [x] **Step 3:** Swap `ui/pages/test.py`'s quiz-generation call from `stream_with_thinking` to `stream_silently`; `stream_with_thinking` itself is unchanged and still used by Lesson
+- [x] **Step 4:** Run full test suite — 77 passed; `make lint` unchanged (same 2 pre-existing unrelated warnings)
+- [x] **Step 5:** Commit — `fix: stop leaking quiz answers during streaming generation` (this update)
+- [x] **Step 6:** Push

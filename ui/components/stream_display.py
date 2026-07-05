@@ -36,3 +36,16 @@ def stream_with_thinking(collector: StreamCollector) -> None:
         placeholder.markdown(buf + "▌")
 
     placeholder.markdown(buf)
+
+
+def stream_silently(collector: StreamCollector) -> None:
+    """Show animated thinking dots while draining the stream, without ever
+    displaying its content. Use when the streamed text itself must stay
+    hidden (e.g. it contains answers/spoilers), unlike stream_with_thinking."""
+    placeholder = st.empty()
+    placeholder.markdown(_THINKING_CSS, unsafe_allow_html=True)
+
+    for _ in collector:
+        pass
+
+    placeholder.empty()

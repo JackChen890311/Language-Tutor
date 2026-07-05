@@ -1,6 +1,6 @@
 import streamlit as st
 from ui.state import get
-from ui.components.stream_display import stream_with_thinking
+from ui.components.stream_display import stream_silently
 
 
 def render() -> None:
@@ -14,7 +14,7 @@ def render() -> None:
 
     if st.button("🎲 Generate Test"):
         collector = quiz_svc.stream_questions(native_lang, target_lang)
-        stream_with_thinking(collector)
+        stream_silently(collector)
         st.session_state.test_questions = quiz_svc.parse_questions(collector.full_text)
         st.session_state.test_answers = {}
         st.session_state.pop("test_result", None)
