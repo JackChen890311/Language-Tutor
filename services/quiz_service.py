@@ -17,9 +17,11 @@ class QuizService:
         self._pb = prompt_builder
 
     def stream_questions(
-        self, native_lang: str, target_lang: str, n_questions: int = 8
+        self, native_lang: str, target_lang: str, difficulty: str, n_questions: int = 8
     ) -> StreamCollector:
-        system_prompt = self._pb.test_system_prompt(native_lang, target_lang, n_questions)
+        system_prompt = self._pb.test_system_prompt(
+            native_lang, target_lang, difficulty, n_questions
+        )
         llm = self._mm.get_llm()
         return StreamCollector(
             llm.stream(

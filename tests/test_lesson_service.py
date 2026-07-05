@@ -22,7 +22,7 @@ def test_suggest_topics(tmp_store, mock_llm):
 def test_start_lesson_creates_session(tmp_store, mock_llm):
     mock_llm.generate.return_value = "Let's start with vocabulary for food..."
     svc = _make_svc(tmp_store, mock_llm)
-    result = svc.start_lesson("ja", "zh-TW", "Food", difficulty="Normal")
+    result = svc.start_lesson("ja", "zh-TW", "Food", difficulty="N4")
     assert "lesson_id" in result
     assert "session_id" in result
     assert "response" in result
@@ -43,7 +43,7 @@ def test_continue_lesson_structured(tmp_store, mock_llm):
         "zh-TW",
         "Food",
         phase="structured",
-        difficulty="Normal",
+        difficulty="N4",
         user_text="I understand.",
     )
     assert "response" in result

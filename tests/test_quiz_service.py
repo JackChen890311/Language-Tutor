@@ -35,7 +35,7 @@ def _mock_questions():
 def test_stream_questions_then_parse(tmp_store, mock_llm):
     mock_llm.stream.return_value = iter([_mock_questions()])
     svc = _make_svc(tmp_store, mock_llm)
-    collector = svc.stream_questions("zh-TW", "ja")
+    collector = svc.stream_questions("zh-TW", "ja", "N3")
     list(collector)  # consume the stream, filling collector.full_text
     questions = svc.parse_questions(collector.full_text)
     assert len(questions) == 2

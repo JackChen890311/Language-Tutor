@@ -8,11 +8,17 @@ LANG_NAMES = {
     "de": "German",
 }
 
-DIFFICULTY_INSTRUCTIONS = {
-    "Easy": "Use simpler vocabulary, shorter sentences, and provide more hints and encouragement.",
-    "Normal": "Use natural, moderately-paced language and everyday vocabulary.",
-    "Hard": "Use complex grammar, native-speed examples, and provide minimal hand-holding.",
+DIFFICULTY_FRAMEWORKS: dict[str, dict] = {
+    "ja": {"name": "JLPT", "levels": ["N5", "N4", "N3", "N2", "N1"]},
+    "zh-TW": {"name": "HSK", "levels": ["HSK1", "HSK2", "HSK3", "HSK4", "HSK5", "HSK6"]},
+    "zh": {"name": "HSK", "levels": ["HSK1", "HSK2", "HSK3", "HSK4", "HSK5", "HSK6"]},
+    "ko": {"name": "TOPIK", "levels": ["TOPIK1", "TOPIK2", "TOPIK3", "TOPIK4", "TOPIK5", "TOPIK6"]},
 }
+_CEFR_FRAMEWORK = {"name": "CEFR", "levels": ["A1", "A2", "B1", "B2", "C1", "C2"]}
+
+
+def get_difficulty_levels(target_lang: str) -> dict:
+    return DIFFICULTY_FRAMEWORKS.get(target_lang, _CEFR_FRAMEWORK)
 
 
 class PromptBuilder:
@@ -48,10 +54,15 @@ class PromptBuilder:
             f"{self._chinese_rule(native_lang)}"
         )
 
-    def test_system_prompt(self, native_lang: str, target_lang: str, n_questions: int = 8) -> str:
+    def test_system_prompt(
+        self, native_lang: str, target_lang: str, difficulty: str, n_questions: int = 8
+    ) -> str:
+        framework = get_difficulty_levels(target_lang)
         return (
             f"You are creating a {self._lang_name(target_lang)} ({target_lang}) "
             f"practice quiz.\n\n"
+            f"Target proficiency: {framework['name']} {difficulty} — calibrate question "
+            f"difficulty to match this level on the {framework['name']} scale.\n\n"
             f"Generate exactly {n_questions} multiple choice questions covering vocabulary, "
             f"grammar, and reading comprehension.\n\n"
             f"For each question, write two explanations of why the correct answer is right: "
@@ -106,9 +117,9 @@ class PromptBuilder:
         target_lang: str,
         topic: str,
         phase: str,
-        difficulty: str = "Normal",
+        difficulty: str,
     ) -> str:
-        difficulty_note = DIFFICULTY_INSTRUCTIONS.get(difficulty, DIFFICULTY_INSTRUCTIONS["Normal"])
+        framework = get_difficulty_levels(target_lang)
 
         if phase == "structured":
             phase_instructions = (
@@ -130,7 +141,8 @@ class PromptBuilder:
         return (
             f"You are teaching a {self._lang_name(target_lang)} lesson.\n\n"
             f"Topic: {topic}\n"
-            f"Difficulty: {difficulty} — {difficulty_note}\n"
+            f"Target proficiency: {framework['name']} {difficulty} — calibrate vocabulary, "
+            f"grammar complexity, and pace to match this level on the {framework['name']} scale.\n"
             f"Native language: {self._lang_name(native_lang)} ({native_lang})\n\n"
             f"{phase_instructions}\n"
             f"Always explain in {self._lang_name(native_lang)}. Practice in {self._lang_name(target_lang)}.\n"

@@ -2105,3 +2105,22 @@ See `docs/superpowers/specs/2026-07-05-language-tutor-design.md` (final section)
 - [x] **Step 5:** Run full test suite — 77 passed (no service-layer changes); `make lint` clean
 - [x] **Step 6:** Commit — `fix: require explicit confirmation for suggested lesson topics; fix speak tag leak in lesson` (this update)
 - [x] **Step 7:** Push
+
+---
+
+## Feature: fine-grained per-language difficulty for Lesson and Test
+
+See `docs/superpowers/specs/2026-07-05-language-tutor-design.md` (final section) for the design rationale, including why this is not a reintroduction of the removed level/proficiency concept.
+
+**Files:** `services/prompt_builder.py`, `services/lesson_service.py`, `services/quiz_service.py`, `ui/pages/lesson.py`, `ui/pages/test.py`, `tests/test_prompt_builder.py`, `tests/test_lesson_service.py`, `tests/test_quiz_service.py`
+
+- [x] **Step 1:** Add `DIFFICULTY_FRAMEWORKS` (ja→JLPT N5-N1, zh-TW/zh→HSK1-6, ko→TOPIK1-6) and `_CEFR_FRAMEWORK` fallback (A1-C2) plus `get_difficulty_levels(target_lang) -> dict` to `services/prompt_builder.py`; delete the old `DIFFICULTY_INSTRUCTIONS` (Easy/Normal/Hard) dict, now unused
+- [x] **Step 2:** Rewrite `lesson_system_prompt`'s difficulty line to `"Target proficiency: {framework} {level} — calibrate vocabulary, grammar complexity, and pace..."`, drop its `difficulty="Normal"` default (now required); add the same framework-lookup difficulty line to `test_system_prompt`, adding a required `difficulty` parameter positioned before `n_questions=8`
+- [x] **Step 3:** Drop `difficulty="Normal"` defaults from `LessonService.start_lesson`/`stream_start_lesson` (now required, matching `continue_lesson`/`stream_continue_lesson`); add the matching required `difficulty` parameter to `QuizService.stream_questions`, forwarded to `test_system_prompt`
+- [x] **Step 4:** Replace `ui/pages/lesson.py`'s `st.select_slider("Difficulty", options=["Easy","Normal","Hard"])` with one built from `get_difficulty_levels(target_lang)`, labeled `f"Difficulty ({framework['name']})"`, defaulting to the middle level
+- [x] **Step 5:** Add the identical difficulty slider to `ui/pages/test.py` above "🎲 Generate Test", wired into `quiz_svc.stream_questions(...)`; update the page caption from "no proficiency level involved" to "Practice with a random quiz at your chosen difficulty" (the old wording no longer described the page)
+- [x] **Step 6:** Update tests: `test_prompt_builder.py` (real level strings instead of Easy/Normal/Hard, new `test_get_difficulty_levels_known_language`/`test_get_difficulty_levels_falls_back_to_cefr`/`test_*_includes_difficulty_framework` tests), `test_lesson_service.py` and `test_quiz_service.py` (pass real level strings)
+- [x] **Step 7:** Verify with Streamlit's `AppTest` harness (no browser in this environment): Lesson's slider shows `Difficulty (JLPT)` with `[N5,N4,N3,N2,N1]` for target `ja` and falls back to `Difficulty (CEFR)` for target `es`; Test's slider shows `Difficulty (TOPIK)` for target `ko`; selecting `N1` on Test and clicking Generate Test calls `stream_questions` with that exact difficulty
+- [x] **Step 8:** Run full test suite — 81 passed (4 new); `make lint`/`make format` clean (same 2 pre-existing unrelated warnings)
+- [x] **Step 9:** Commit — `feat: add fine-grained per-language difficulty levels to Lesson and Test` (this update)
+- [x] **Step 10:** Push

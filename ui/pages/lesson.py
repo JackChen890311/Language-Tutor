@@ -3,6 +3,7 @@ from ui.state import get
 from ui.components.word_chip import render_word_chips
 from ui.components.stream_display import stream_with_thinking
 from ui.components.audio_controls import render_message_with_tts
+from services.prompt_builder import get_difficulty_levels
 
 
 def render() -> None:
@@ -21,7 +22,11 @@ def render() -> None:
 def _render_topic_picker(lesson_svc, target_lang, native_lang) -> None:
     st.subheader("Choose a topic")
 
-    difficulty = st.select_slider("Difficulty", options=["Easy", "Normal", "Hard"], value="Normal")
+    framework = get_difficulty_levels(target_lang)
+    levels = framework["levels"]
+    difficulty = st.select_slider(
+        f"Difficulty ({framework['name']})", options=levels, value=levels[len(levels) // 2]
+    )
 
     def _pick_topic(topic: str) -> None:
         st.session_state.lesson_topic_input = topic

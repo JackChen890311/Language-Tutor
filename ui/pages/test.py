@@ -1,19 +1,26 @@
 import streamlit as st
 from ui.state import get
 from ui.components.stream_display import stream_silently
+from services.prompt_builder import get_difficulty_levels
 
 
 def render() -> None:
     st.title("🧪 Test")
-    st.caption("Practice with a random quiz — no proficiency level involved.")
+    st.caption("Practice with a random quiz at your chosen difficulty.")
 
     language_svc = get("language_svc")
     quiz_svc = get("quiz_svc")
     store = get("store")
     native_lang, target_lang = language_svc.get_language_pair()
 
+    framework = get_difficulty_levels(target_lang)
+    levels = framework["levels"]
+    difficulty = st.select_slider(
+        f"Difficulty ({framework['name']})", options=levels, value=levels[len(levels) // 2]
+    )
+
     if st.button("🎲 Generate Test"):
-        collector = quiz_svc.stream_questions(native_lang, target_lang)
+        collector = quiz_svc.stream_questions(native_lang, target_lang, difficulty)
         stream_silently(collector)
         st.session_state.test_questions = quiz_svc.parse_questions(collector.full_text)
         st.session_state.test_answers = {}

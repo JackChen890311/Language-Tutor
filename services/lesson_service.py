@@ -45,7 +45,7 @@ class LessonService:
         target_lang: str,
         native_lang: str,
         topic: str,
-        difficulty: str = "Normal",
+        difficulty: str,
     ) -> dict:
         lesson_id = f"lesson-{uuid.uuid4().hex[:8]}"
         session_id = self._store.create_chat_session(
@@ -123,7 +123,7 @@ class LessonService:
         target_lang: str,
         native_lang: str,
         topic: str,
-        difficulty: str = "Normal",
+        difficulty: str,
     ) -> tuple[str, str, StreamCollector]:
         lesson_id = f"lesson-{uuid.uuid4().hex[:8]}"
         session_id = self._store.create_chat_session(
