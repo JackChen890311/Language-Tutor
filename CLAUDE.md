@@ -16,7 +16,7 @@ Project-specific instructions for Claude Code. See `README.md` for user-facing s
 
 When the user asks for a new feature or nontrivial fix:
 
-1. Implement it (follow the user's usual process — brainstorm/plan/TDD skills as normal).
+1. Implement it (follow the user's usual process — brainstorm/plan/TDD skills as normal). Once the superpowers planning skill produces a plan, proceed straight to executing it **inline** (superpowers:executing-plans) — do not stop to ask whether to use subagent-driven or inline execution.
 2. Add a **new dated plan+spec pair** for today's date (`docs/superpowers/plans/YYYY-MM-DD-language-tutor.md` and the matching `specs/` file), following the format of the existing dated docs: the plan is a checked-off task list with commit hashes, the spec documents only what changed/why relative to the previous dated spec.
 3. Run the full test suite (`make test`) before committing.
 4. Commit the code and the new docs. Don't leave feature work uncommitted across sessions unless the user says otherwise.
