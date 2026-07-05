@@ -4,24 +4,30 @@ import tempfile
 import streamlit as st
 from ui.state import get
 
+# Tolerates malformed tags the model occasionally emits (e.g. "<s speak>"
+# instead of "<speak>") by only requiring "speak" as a whole word inside
+# the angle brackets, rather than an exact "<speak>"/"</speak>" match.
+_SPEAK_BLOCK_RE = re.compile(r"<[^>]*\bspeak\b[^>]*>(.*?)</[^>]*\bspeak\b[^>]*>", re.DOTALL)
+
 
 def extract_speak_text(text: str) -> str:
-    chunks = re.findall(r"<speak>(.*?)</speak>", text, re.DOTALL)
+    chunks = [m.group(1) for m in _SPEAK_BLOCK_RE.finditer(text)]
     stripped = [c.strip() for c in chunks if c.strip()]
     return " ".join(stripped) if stripped else text
 
 
 def parse_message_segments(text: str) -> list[dict]:
-    parts = re.split(r"(<speak>.*?</speak>)", text, flags=re.DOTALL)
     segments = []
-    for part in parts:
-        m = re.match(r"<speak>(.*?)</speak>", part, re.DOTALL)
-        if m:
-            content = m.group(1).strip()
-            if content:
-                segments.append({"type": "speak", "content": content})
-        elif part:
-            segments.append({"type": "text", "content": part})
+    pos = 0
+    for m in _SPEAK_BLOCK_RE.finditer(text):
+        if m.start() > pos:
+            segments.append({"type": "text", "content": text[pos : m.start()]})
+        content = m.group(1).strip()
+        if content:
+            segments.append({"type": "speak", "content": content})
+        pos = m.end()
+    if pos < len(text):
+        segments.append({"type": "text", "content": text[pos:]})
     return segments
 
 

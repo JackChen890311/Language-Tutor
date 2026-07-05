@@ -2141,3 +2141,19 @@ See `docs/superpowers/specs/2026-07-05-language-tutor-design.md` (final section)
 - [x] **Step 6:** Run full test suite — 87 passed (6 new); `make lint`/`make format` clean (same 2 pre-existing unrelated warnings)
 - [x] **Step 7:** Commit — `fix: tolerate misspelled WORD_SUGGESTION marker; add furigana for all kanji` (this update)
 - [x] **Step 8:** Push
+
+---
+
+## Fix: malformed `<speak>` opening tag also leaked into text
+
+See `docs/superpowers/specs/2026-07-05-language-tutor-design.md` (final section) for the root-cause writeup — same failure class as the WORD_SUGGESTION marker fix above, reported immediately after.
+
+**Files:** `ui/components/audio_controls.py`, `tests/test_speak_extraction.py`
+
+- [x] **Step 1:** Diagnose — user reported `<s speak>ペットボトルのコーラは冷たいです。</speak>` rendering literally; `extract_speak_text`/`parse_message_segments` both matched the exact literal `<speak>...</speak>`, so the malformed opening tag was never recognized
+- [x] **Step 2:** Replace both ad-hoc `r"<speak>(.*?)</speak>"` patterns with one shared `_SPEAK_BLOCK_RE = re.compile(r"<[^>]*\bspeak\b[^>]*>(.*?)</[^>]*\bspeak\b[^>]*>", re.DOTALL)`, requiring only that "speak" appear as a whole word inside each pair of angle brackets (tolerates `<s speak>`, still excludes unrelated tags like `<speaker>` via the `\b` boundary); rewrite `extract_speak_text`/`parse_message_segments` around `_SPEAK_BLOCK_RE.finditer(text)` instead of `re.findall`/`re.split`+`re.match`
+- [x] **Step 3:** Add tests — `test_malformed_opening_tag_still_recognized`, `test_parse_malformed_opening_tag_returns_speak_segment` (both reproducing the exact reported text)
+- [x] **Step 4:** Verify by reproducing the exact reported string directly through both functions — cleans to `ペットボトルのコーラは冷たいです。` with a proper `speak` segment, no raw tag
+- [x] **Step 5:** Run full test suite — 89 passed (2 new); `make lint`/`make format` clean (same 2 pre-existing unrelated warnings)
+- [x] **Step 6:** Commit — `fix: tolerate malformed speak tags in message rendering` (this update)
+- [x] **Step 7:** Push

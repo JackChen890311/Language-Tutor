@@ -1,6 +1,10 @@
 import base64
 
-from ui.components.audio_controls import extract_speak_text, parse_message_segments, autoplay_audio_html
+from ui.components.audio_controls import (
+    extract_speak_text,
+    parse_message_segments,
+    autoplay_audio_html,
+)
 
 
 def test_no_tags_returns_original():
@@ -26,7 +30,13 @@ def test_strips_whitespace_inside_tags():
     assert extract_speak_text(text) == "おやすみ"
 
 
+def test_malformed_opening_tag_still_recognized():
+    text = "<s speak>ペットボトルのコーラは冷たいです。</speak>"
+    assert extract_speak_text(text) == "ペットボトルのコーラは冷たいです。"
+
+
 # --- parse_message_segments ---
+
 
 def test_parse_plain_text_returns_single_text_segment():
     segs = parse_message_segments("Hello world")
@@ -65,7 +75,14 @@ def test_parse_speak_only_message():
     assert segs == [{"type": "speak", "content": "いただきます"}]
 
 
+def test_parse_malformed_opening_tag_returns_speak_segment():
+    text = "<s speak>ペットボトルのコーラは冷たいです。</speak>"
+    segs = parse_message_segments(text)
+    assert segs == [{"type": "speak", "content": "ペットボトルのコーラは冷たいです。"}]
+
+
 # --- autoplay_audio_html ---
+
 
 def test_autoplay_html_contains_base64_audio():
     audio_bytes = b"RIFF"  # minimal fake wav header
@@ -78,4 +95,4 @@ def test_autoplay_html_contains_base64_audio():
 
 def test_autoplay_html_is_invisible():
     html = autoplay_audio_html(b"RIFF")
-    assert 'height="0"' in html or "height:0" in html or 'display:none' in html
+    assert 'height="0"' in html or "height:0" in html or "display:none" in html
