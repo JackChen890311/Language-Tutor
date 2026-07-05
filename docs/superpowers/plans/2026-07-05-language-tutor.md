@@ -2089,3 +2089,19 @@ See `docs/superpowers/specs/2026-07-05-language-tutor-design.md` (final section)
 - [x] **Step 4:** Run full test suite — 77 passed; `make lint` unchanged (same 2 pre-existing unrelated warnings)
 - [x] **Step 5:** Commit — `fix: stop leaking quiz answers during streaming generation` (this update)
 - [x] **Step 6:** Push
+
+---
+
+## Fix: Lesson topic picker skipped confirmation; `<speak>` tags leaked as raw text
+
+See `docs/superpowers/specs/2026-07-05-language-tutor-design.md` (final section) for the design rationale.
+
+**Files:** `ui/pages/lesson.py`
+
+- [x] **Step 1:** Diagnose — clicking a suggested topic called `_start_lesson` immediately with no confirmation step; separately, Lesson rendered assistant messages via `st.write` + a whole-message `render_tts_button` instead of `render_message_with_tts` (what Chat uses), so `<speak>` tags were never parsed out of the displayed text
+- [x] **Step 2:** Rework `_render_topic_picker` — suggested-topic buttons now populate the `lesson_topic_input`-keyed text box via an `on_click` callback instead of starting the lesson; a shared `pending_topic` session-state flag (set by the text box's `on_change` callback on Enter, or by the "▶️ Start Lesson" button) is checked once at the end of the function as the single call site for `_start_lesson`
+- [x] **Step 3:** Swap both assistant-message render sites in `_render_active_lesson` (the history loop and the just-streamed response) from `st.write`/`render_tts_button` to `render_message_with_tts`, matching `ui/pages/chat.py`; drop the now-unused `render_tts_button` import
+- [x] **Step 4:** Verify with Streamlit's `AppTest` harness (no browser available in this environment) driving the real `ui/pages/lesson.py` against faked `language_svc`/`lesson_svc`/`mm` services — confirmed a suggested-topic click only populates the text box (no lesson start), both Enter-to-submit and the Start Lesson button correctly start the lesson, and a message containing `<speak>こんにちは</speak>` renders as three clean segments with no raw tag visible
+- [x] **Step 5:** Run full test suite — 77 passed (no service-layer changes); `make lint` clean
+- [x] **Step 6:** Commit — `fix: require explicit confirmation for suggested lesson topics; fix speak tag leak in lesson` (this update)
+- [x] **Step 7:** Push

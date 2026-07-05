@@ -2,7 +2,7 @@ import streamlit as st
 from ui.state import get
 from ui.components.word_chip import render_word_chips
 from ui.components.stream_display import stream_with_thinking
-from ui.components.audio_controls import render_tts_button
+from ui.components.audio_controls import render_message_with_tts
 
 
 def render() -> None:
@@ -23,9 +23,22 @@ def _render_topic_picker(lesson_svc, target_lang, native_lang) -> None:
 
     difficulty = st.select_slider("Difficulty", options=["Easy", "Normal", "Hard"], value="Normal")
 
+    def _pick_topic(topic: str) -> None:
+        st.session_state.lesson_topic_input = topic
+
+    def _submit_topic() -> None:
+        topic = st.session_state.get("lesson_topic_input", "").strip()
+        if topic:
+            st.session_state.pending_topic = topic
+
     col1, col2 = st.columns([3, 1])
     with col1:
-        custom_topic = st.text_input("Or enter a custom topic:", placeholder="e.g. ordering coffee")
+        custom_topic = st.text_input(
+            "Or enter a custom topic:",
+            placeholder="e.g. ordering coffee",
+            key="lesson_topic_input",
+            on_change=_submit_topic,
+        )
     with col2:
         if st.button("🎲 Suggest Topics"):
             with st.spinner("Getting suggestions..."):
@@ -37,11 +50,14 @@ def _render_topic_picker(lesson_svc, target_lang, native_lang) -> None:
         cols = st.columns(min(len(suggested), 5))
         for i, topic in enumerate(suggested):
             with cols[i % 5]:
-                if st.button(topic, key=f"topic_{i}"):
-                    _start_lesson(lesson_svc, target_lang, native_lang, topic, difficulty)
+                st.button(topic, key=f"topic_{i}", on_click=_pick_topic, args=(topic,))
 
-    if custom_topic and st.button("▶️ Start Lesson"):
-        _start_lesson(lesson_svc, target_lang, native_lang, custom_topic, difficulty)
+    if custom_topic:
+        st.button("▶️ Start Lesson", on_click=_submit_topic)
+
+    pending_topic = st.session_state.pop("pending_topic", None)
+    if pending_topic:
+        _start_lesson(lesson_svc, target_lang, native_lang, pending_topic, difficulty)
 
 
 def _start_lesson(lesson_svc, target_lang, native_lang, topic, difficulty) -> None:
@@ -89,9 +105,10 @@ def _render_active_lesson(lesson_svc, language_svc, target_lang, native_lang) ->
 
     for msg in lesson["messages"]:
         with st.chat_message(msg["role"]):
-            st.write(msg["content"])
             if msg["role"] == "assistant":
-                render_tts_button(msg["content"], lang=target_lang, key=msg["content"][:20])
+                render_message_with_tts(msg["content"], lang=target_lang, key=msg["content"][:20])
+            else:
+                st.write(msg["content"])
 
     render_word_chips(lesson.get("word_suggestions", []), lang=target_lang, native_lang=native_lang)
 
@@ -112,7 +129,7 @@ def _render_active_lesson(lesson_svc, language_svc, target_lang, native_lang) ->
         )
         with st.chat_message("assistant"):
             stream_with_thinking(collector)
-            render_tts_button(collector.full_text, lang=target_lang, key="lesson_latest")
+            render_message_with_tts(collector.full_text, lang=target_lang, key="lesson_latest")
         result = lesson_svc.commit_continue_lesson(
             target_lang=target_lang,
             session_id=lesson["session_id"],
