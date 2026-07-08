@@ -1,7 +1,7 @@
 import tempfile
 import streamlit as st
 from ui.state import get
-from ui.components.word_chip import render_word_chips, merge_word_suggestions
+from ui.components.word_chip import render_word_chips, add_word_suggestions
 from ui.components.audio_controls import render_message_with_tts, render_stt_input
 from ui.components.stream_display import stream_with_thinking
 
@@ -43,13 +43,6 @@ def render() -> None:
 
     session_info = next((s for s in sessions if s["id"] == active_session), None)
 
-    chat_word_suggestions = st.session_state.setdefault("chat_word_suggestions", {})
-
-    def _on_save(word: str) -> None:
-        chat_word_suggestions[active_session] = [
-            s for s in chat_word_suggestions.get(active_session, []) if s.get("word") != word
-        ]
-
     col1, col2 = st.columns([3, 1])
 
     with col1:
@@ -82,12 +75,7 @@ def render() -> None:
                 image_path = f.name
 
     with col2:
-        render_word_chips(
-            chat_word_suggestions.get(active_session, []),
-            lang=target_lang,
-            native_lang=native_lang,
-            on_save=_on_save,
-        )
+        render_word_chips(lang=target_lang, native_lang=native_lang)
 
     stt_text = render_stt_input(key=active_session)
     user_input = st.chat_input("Type a message...")
@@ -115,10 +103,7 @@ def render() -> None:
             user_text=final_input,
             raw_response=collector.full_text,
         )
-        chat_word_suggestions[active_session] = merge_word_suggestions(
-            chat_word_suggestions.get(active_session, []),
-            result.get("word_suggestions", []),
-        )
+        add_word_suggestions(result.get("word_suggestions", []))
 
         language_svc.update_streak(target_lang)
         st.rerun()

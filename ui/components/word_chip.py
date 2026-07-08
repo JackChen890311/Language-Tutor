@@ -1,5 +1,3 @@
-from typing import Callable
-
 import streamlit as st
 from ui.state import get
 
@@ -17,6 +15,8 @@ _CHIP_CSS = """
 </style>
 """
 
+_STATE_KEY = "word_suggestions"
+
 
 def merge_word_suggestions(existing: list[dict], new: list[dict], cap: int = 10) -> list[dict]:
     """Newest first, deduped by word, capped at `cap`."""
@@ -28,9 +28,17 @@ def merge_word_suggestions(existing: list[dict], new: list[dict], cap: int = 10)
     return merged[:cap]
 
 
-def render_word_chips(
-    suggestions: list[dict], lang: str, native_lang: str, on_save: Callable[[str], None]
-) -> None:
+def get_word_suggestions() -> list[dict]:
+    """The single word-suggestion list shared across Chat and every Lesson."""
+    return st.session_state.setdefault(_STATE_KEY, [])
+
+
+def add_word_suggestions(new: list[dict], cap: int = 10) -> None:
+    st.session_state[_STATE_KEY] = merge_word_suggestions(get_word_suggestions(), new, cap=cap)
+
+
+def render_word_chips(lang: str, native_lang: str) -> None:
+    suggestions = get_word_suggestions()
     if not suggestions:
         return
     st.markdown(_CHIP_CSS, unsafe_allow_html=True)
@@ -47,5 +55,7 @@ def render_word_chips(
             word_svc = get("word_svc")
             word_svc.add_word(lang, native_lang, word, reading=reading, source="chat")
             st.toast(f"✅ Saved: {word}")
-            on_save(word)
+            st.session_state[_STATE_KEY] = [
+                s for s in get_word_suggestions() if s.get("word") != word
+            ]
             st.rerun()

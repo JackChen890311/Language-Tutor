@@ -1,6 +1,6 @@
 import streamlit as st
 from ui.state import get
-from ui.components.word_chip import render_word_chips, merge_word_suggestions
+from ui.components.word_chip import render_word_chips, add_word_suggestions
 from ui.components.stream_display import stream_with_thinking
 from ui.components.audio_controls import render_message_with_tts
 from services.prompt_builder import get_difficulty_levels
@@ -74,6 +74,7 @@ def _start_lesson(lesson_svc, target_lang, native_lang, topic, difficulty) -> No
     result = lesson_svc.commit_start_lesson(
         target_lang, session_id, lesson_id, topic, collector.full_text
     )
+    add_word_suggestions(result.get("word_suggestions", []))
     st.session_state.active_lesson = {
         "lesson_id": lesson_id,
         "session_id": session_id,
@@ -81,7 +82,6 @@ def _start_lesson(lesson_svc, target_lang, native_lang, topic, difficulty) -> No
         "difficulty": difficulty,
         "phase": result["phase"],
         "messages": [{"role": "assistant", "content": result["response"]}],
-        "word_suggestions": merge_word_suggestions([], result.get("word_suggestions", [])),
     }
     st.rerun()
 
@@ -91,11 +91,6 @@ def _render_active_lesson(lesson_svc, language_svc, target_lang, native_lang) ->
     topic = lesson["topic"]
     phase = lesson["phase"]
     phase_label = "📖 Structured Lesson" if phase == "structured" else "💬 Free Conversation"
-
-    def _on_save(word: str) -> None:
-        lesson["word_suggestions"] = [
-            s for s in lesson.get("word_suggestions", []) if s.get("word") != word
-        ]
 
     col1, col2 = st.columns([3, 1])
 
@@ -126,12 +121,7 @@ def _render_active_lesson(lesson_svc, language_svc, target_lang, native_lang) ->
                     st.write(msg["content"])
 
     with col2:
-        render_word_chips(
-            lesson.get("word_suggestions", []),
-            lang=target_lang,
-            native_lang=native_lang,
-            on_save=_on_save,
-        )
+        render_word_chips(lang=target_lang, native_lang=native_lang)
 
     user_input = st.chat_input("Your response...")
     if user_input:
@@ -161,7 +151,5 @@ def _render_active_lesson(lesson_svc, language_svc, target_lang, native_lang) ->
         )
 
         lesson["messages"].append({"role": "assistant", "content": result["response"]})
-        lesson["word_suggestions"] = merge_word_suggestions(
-            lesson.get("word_suggestions", []), result.get("word_suggestions", [])
-        )
+        add_word_suggestions(result.get("word_suggestions", []))
         st.rerun()
