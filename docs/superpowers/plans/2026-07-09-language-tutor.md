@@ -577,3 +577,196 @@ git add ui/components/audio_controls.py tests/test_speak_extraction.py docs/supe
 git commit -m "fix: strip furigana readings before TTS synthesis to stop duplicated voice"
 git push origin main
 ```
+
+## Task 38: Recognize miscapitalized `<speaK>` tags
+
+**Files:**
+- Modify: `ui/components/audio_controls.py`
+- Modify: `tests/test_speak_extraction.py`
+
+Found while investigating a user report of missing word-suggestion chips: a real model response contained `<speaK>...</speak>` (miscapitalized opening tag), which `_SPEAK_BLOCK_RE` didn't match because it was case-sensitive — same failure class as the `<s speak>` bug fixed 2026-07-05.
+
+- [x] **Step 1: Write the failing test**
+
+Added to `tests/test_speak_extraction.py`:
+
+```python
+def test_miscapitalized_tag_still_recognized():
+    text = "<speaK>コーヒーをください。</speak>"
+    assert extract_speak_text(text) == "コーヒーをください。"
+```
+
+Run: `uv run pytest tests/test_speak_extraction.py -v -k miscapitalized`
+Expected: FAIL — `extract_speak_text` returns the raw tagged text unchanged
+
+- [x] **Step 2: Add `re.IGNORECASE` to `_SPEAK_BLOCK_RE`**
+
+In `ui/components/audio_controls.py`, changed:
+
+```python
+_SPEAK_BLOCK_RE = re.compile(r"<[^>]*\bspeak\b[^>]*>(.*?)</[^>]*\bspeak\b[^>]*>", re.DOTALL)
+```
+
+to:
+
+```python
+_SPEAK_BLOCK_RE = re.compile(
+    r"<[^>]*\bspeak\b[^>]*>(.*?)</[^>]*\bspeak\b[^>]*>", re.DOTALL | re.IGNORECASE
+)
+```
+
+- [x] **Step 3: Run the full test suite**
+
+Run: `uv run pytest tests/test_speak_extraction.py -v`
+Expected: PASS, all 19 tests green
+
+- [x] **Step 4: Commit**
+
+```bash
+git add ui/components/audio_controls.py tests/test_speak_extraction.py
+git commit -m "fix: recognize miscapitalized speak tags (e.g. <speaK>) case-insensitively"
+```
+
+## Task 39: Share one global word-suggestion list across Chat and every Lesson
+
+**Files:**
+- Modify: `ui/components/word_chip.py`
+- Modify: `ui/pages/chat.py`
+- Modify: `ui/pages/lesson.py`
+
+**Reported symptom:** word-suggestion chips appeared while inside a Lesson, then seemed to vanish after switching to the Chat page.
+
+**Investigation (see `docs/superpowers/specs/2026-07-09-language-tutor-design.md`):** direct calls to the real, locally-configured LLM confirmed the marker-extraction mechanism works correctly and that model compliance with the marker instruction is inherently probabilistic (not a code defect). The actual root cause was Task 33–35's per-page scoping: Chat's `chat_word_suggestions` dict (keyed by chat session id) and Lesson's `active_lesson["word_suggestions"]` were two independent lists, so switching from Lesson to Chat correctly showed a *different* (often empty) list — which looked like the suggestions had disappeared. Confirmed with the user: word suggestions should be one continuous list shared across the whole app, not scoped per conversation.
+
+**Interfaces:**
+- Produces: `get_word_suggestions() -> list[dict]`, `add_word_suggestions(new: list[dict], cap: int = 10) -> None` in `ui/components/word_chip.py`
+- Changes: `render_word_chips(lang: str, native_lang: str) -> None` — drops the `suggestions` and `on_save` parameters entirely; reads and mutates the shared list itself
+
+No new automated tests (session-state wiring, consistent with the Global Constraints note in Task 33). Verified manually with an `AppTest` script simulating a suggestion added during a Lesson, then rendering the Chat page in the same session — confirmed the Lesson-origin chip appears on Chat.
+
+- [x] **Step 1: Rewrite `ui/components/word_chip.py`**
+
+```python
+import streamlit as st
+from ui.state import get
+
+_CHIP_CSS = """
+<style>
+.word-chip {
+    background: rgba(79, 142, 247, 0.1);
+    border: 1px solid rgba(79, 142, 247, 0.3);
+    border-radius: 10px;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.4rem;
+}
+.word-chip .word { font-size: 1.05rem; font-weight: 600; }
+.word-chip .reading { font-size: 0.8rem; color: grey; }
+</style>
+"""
+
+_STATE_KEY = "word_suggestions"
+
+
+def merge_word_suggestions(existing: list[dict], new: list[dict], cap: int = 10) -> list[dict]:
+    """Newest first, deduped by word, capped at `cap`."""
+    merged = list(existing)
+    for suggestion in new:
+        word = suggestion.get("word", "")
+        merged = [s for s in merged if s.get("word") != word]
+        merged.insert(0, suggestion)
+    return merged[:cap]
+
+
+def get_word_suggestions() -> list[dict]:
+    """The single word-suggestion list shared across Chat and every Lesson."""
+    return st.session_state.setdefault(_STATE_KEY, [])
+
+
+def add_word_suggestions(new: list[dict], cap: int = 10) -> None:
+    st.session_state[_STATE_KEY] = merge_word_suggestions(get_word_suggestions(), new, cap=cap)
+
+
+def render_word_chips(lang: str, native_lang: str) -> None:
+    suggestions = get_word_suggestions()
+    if not suggestions:
+        return
+    st.markdown(_CHIP_CSS, unsafe_allow_html=True)
+    st.caption("💡 Word suggestions")
+    for i, suggestion in enumerate(suggestions):
+        word = suggestion.get("word", "")
+        reading = suggestion.get("reading", "")
+        reading_html = f'<div class="reading">{reading}</div>' if reading else ""
+        st.markdown(
+            f'<div class="word-chip"><div class="word">{word}</div>{reading_html}</div>',
+            unsafe_allow_html=True,
+        )
+        if st.button("💾 Save", key=f"save_word_{i}_{word}", use_container_width=True):
+            word_svc = get("word_svc")
+            word_svc.add_word(lang, native_lang, word, reading=reading, source="chat")
+            st.toast(f"✅ Saved: {word}")
+            st.session_state[_STATE_KEY] = [
+                s for s in get_word_suggestions() if s.get("word") != word
+            ]
+            st.rerun()
+```
+
+- [x] **Step 2: Simplify `ui/pages/chat.py`**
+
+Removed the `chat_word_suggestions` session-state dict and its `_on_save` closure entirely. The right column becomes:
+
+```python
+    with col2:
+        render_word_chips(lang=target_lang, native_lang=native_lang)
+```
+
+and the post-`commit_message` merge becomes:
+
+```python
+        add_word_suggestions(result.get("word_suggestions", []))
+```
+
+Import line changes from `render_word_chips, merge_word_suggestions` to `render_word_chips, add_word_suggestions`.
+
+- [x] **Step 3: Simplify `ui/pages/lesson.py`**
+
+Removed `"word_suggestions"` from the `active_lesson` dict and the `_on_save` closure in `_render_active_lesson`. `_start_lesson` calls `add_word_suggestions(result.get("word_suggestions", []))` right after `commit_start_lesson`, before building `active_lesson`. The right column becomes `render_word_chips(lang=target_lang, native_lang=native_lang)`, and the continue-turn handler's suggestion update becomes `add_word_suggestions(result.get("word_suggestions", []))`. Import line changes the same way as chat.py.
+
+- [x] **Step 4: Run the full test suite**
+
+Run: `uv run pytest -v`
+Expected: PASS, all 99 tests green (`merge_word_suggestions` tests are unaffected — the function's behavior didn't change)
+
+- [x] **Step 5: Verify the fix manually**
+
+Verified with an `AppTest` script: seeded the shared list via `add_word_suggestions([{"word": "食べる", "reading": "たべる"}])` (simulating a suggestion produced during a Lesson), then rendered `ui/pages/chat.py` with an active chat session — confirmed the `食べる` chip appears on the Chat page, proving the list is genuinely shared rather than per-page/per-session.
+
+- [x] **Step 6: Commit**
+
+```bash
+git add ui/components/word_chip.py ui/pages/chat.py ui/pages/lesson.py
+git commit -m "fix: share one global word-suggestion list across Chat and every Lesson"
+```
+
+## Task 40: Final verification, push
+
+**Files:** none (verification only)
+
+- [x] **Step 1: Run the full test suite**
+
+Run: `make test`
+Expected: PASS, all tests green
+
+- [x] **Step 2: Run lint**
+
+Run: `make lint`
+Expected: no new errors on files touched in this update; the pre-existing F401 on `ui/pages/word_list.py` (untouched by this plan, called out in Task 36) remains and is out of scope
+
+- [x] **Step 3: Update and commit the dated spec doc**
+
+Appended two new sections to `docs/superpowers/specs/2026-07-09-language-tutor-design.md` documenting the `<speaK>` fix and the global-suggestion-list investigation/fix (Tasks 38–39), following the same-day delta pattern already used in that file.
+
+- [x] **Step 4: Push to origin main**
+
+```bash
+git push origin main
+```

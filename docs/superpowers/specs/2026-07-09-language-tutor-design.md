@@ -46,3 +46,29 @@ This is a page-level layout change only — Streamlit's existing `st.sidebar` (C
 - `render_tts_button`: `tts.synthesize(strip_furigana(extract_speak_text(text)), lang=lang)`
 
 The furigana reading is only stripped from what's spoken — the displayed `st.markdown(seg["content"])` text (and therefore the visible reading aid for the learner) is unaffected. This is a targeted fix at the TTS boundary rather than in `PromptBuilder`, since the furigana annotation is still wanted in the displayed/stored message text; it's specifically redundant, not wrong, when read aloud.
+
+## Fix: recognize miscapitalized `<speaK>` tags
+
+**Bug:** `_SPEAK_BLOCK_RE` in `ui/components/audio_controls.py` already tolerated stray characters inside the angle brackets (e.g. `<s speak>`, fixed 2026-07-05) but was still case-sensitive, so a miscapitalized tag like `<speaK>` — observed in a real model response — didn't match at all and leaked into the displayed message as raw text, the same failure class as the prior malformed-tag bugs.
+
+**Fix:** added `re.IGNORECASE` to `_SPEAK_BLOCK_RE`'s compiled flags (alongside the existing `re.DOTALL`). No change to the pattern itself.
+
+## Investigation: word suggestions "disappearing" when moving from Lesson to Chat
+
+**Reported symptom:** word-suggestion chips would show up while inside a Lesson, then appear to vanish after switching to the Chat page.
+
+**Investigated and ruled out:** direct calls to the real, locally-configured LLM (bypassing all UI code) confirmed `extract_word_suggestions` and the marker-emission prompt instruction both work correctly when the model complies, and that compliance is inherently probabilistic (the same exact prompt produced markers in 4 of 5 real generations tried during this investigation) — this is expected LLM behavior, not a defect, and applies equally regardless of which page triggered generation.
+
+**Actual root cause:** the per-page design introduced earlier in this file — Chat's `chat_word_suggestions` dict keyed by chat session id, and Lesson's `active_lesson["word_suggestions"]` — meant Chat and every Lesson each had their own independently-scoped suggestion list. Moving from a Lesson (which had accumulated suggestions) to Chat (a different, unrelated session key with its own empty or different list) correctly showed a *different* list — which looked, from the user's perspective, like the suggestions had disappeared.
+
+**Fix — one global suggestion list:** `ui/components/word_chip.py` now owns the suggestion list itself, keyed under a single `st.session_state["word_suggestions"]` list shared across Chat and every Lesson, via two new functions:
+
+```python
+def get_word_suggestions() -> list[dict]:
+    return st.session_state.setdefault("word_suggestions", [])
+
+def add_word_suggestions(new: list[dict], cap: int = 10) -> None:
+    st.session_state["word_suggestions"] = merge_word_suggestions(get_word_suggestions(), new, cap=cap)
+```
+
+`render_word_chips` no longer takes a `suggestions` list or an `on_save` callback — its signature shrinks to `render_word_chips(lang: str, native_lang: str) -> None`; it reads `get_word_suggestions()` and removes a saved word directly from the shared state itself, since there's now only one place the list can live. `ui/pages/chat.py` drops its `chat_word_suggestions` dict and per-session `_on_save` closure entirely; `ui/pages/lesson.py` drops `word_suggestions` from the `active_lesson` dict and its `_on_save` closure. Both pages now just call `add_word_suggestions(result.get("word_suggestions", []))` after each turn and `render_word_chips(lang=target_lang, native_lang=native_lang)` to display — no state threading required. This is a deliberate product decision (confirmed with the user) that word suggestions are one continuous learning aid across the whole app session, not scoped per conversation.
