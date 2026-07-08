@@ -36,6 +36,11 @@ def test_malformed_opening_tag_still_recognized():
     assert extract_speak_text(text) == "ペットボトルのコーラは冷たいです。"
 
 
+def test_miscapitalized_tag_still_recognized():
+    text = "<speaK>コーヒーをください。</speak>"
+    assert extract_speak_text(text) == "コーヒーをください。"
+
+
 # --- parse_message_segments ---
 
 

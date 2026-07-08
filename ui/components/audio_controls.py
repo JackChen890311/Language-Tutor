@@ -5,9 +5,12 @@ import streamlit as st
 from ui.state import get
 
 # Tolerates malformed tags the model occasionally emits (e.g. "<s speak>"
-# instead of "<speak>") by only requiring "speak" as a whole word inside
-# the angle brackets, rather than an exact "<speak>"/"</speak>" match.
-_SPEAK_BLOCK_RE = re.compile(r"<[^>]*\bspeak\b[^>]*>(.*?)</[^>]*\bspeak\b[^>]*>", re.DOTALL)
+# instead of "<speak>", or miscapitalized as "<speaK>") by only requiring
+# "speak" as a whole word inside the angle brackets, case-insensitively,
+# rather than an exact "<speak>"/"</speak>" match.
+_SPEAK_BLOCK_RE = re.compile(
+    r"<[^>]*\bspeak\b[^>]*>(.*?)</[^>]*\bspeak\b[^>]*>", re.DOTALL | re.IGNORECASE
+)
 
 # Matches the "(たべる)" furigana reading the model appends after kanji
 # words per PromptBuilder._furigana_rule. Only matches parens whose content
