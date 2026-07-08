@@ -1,6 +1,6 @@
 import streamlit as st
 from ui.state import get
-from ui.components.word_chip import render_word_chips
+from ui.components.word_chip import render_word_chips, merge_word_suggestions
 from ui.components.stream_display import stream_with_thinking
 from ui.components.audio_controls import render_message_with_tts
 from services.prompt_builder import get_difficulty_levels
@@ -81,7 +81,7 @@ def _start_lesson(lesson_svc, target_lang, native_lang, topic, difficulty) -> No
         "difficulty": difficulty,
         "phase": result["phase"],
         "messages": [{"role": "assistant", "content": result["response"]}],
-        "word_suggestions": result.get("word_suggestions", []),
+        "word_suggestions": merge_word_suggestions([], result.get("word_suggestions", [])),
     }
     st.rerun()
 
@@ -92,30 +92,44 @@ def _render_active_lesson(lesson_svc, language_svc, target_lang, native_lang) ->
     phase = lesson["phase"]
     phase_label = "📖 Structured Lesson" if phase == "structured" else "💬 Free Conversation"
 
-    col1, col2, col3 = st.columns([4, 2, 1])
+    def _on_save(word: str) -> None:
+        lesson["word_suggestions"] = [
+            s for s in lesson.get("word_suggestions", []) if s.get("word") != word
+        ]
+
+    col1, col2 = st.columns([3, 1])
+
     with col1:
-        st.subheader(f"Topic: {topic} — {phase_label}")
-    with col2:
-        if phase == "structured":
-            if st.button("➡️ Move to Free Conversation"):
-                lesson["phase"] = "conversation"
+        header_col1, header_col2, header_col3 = st.columns([4, 2, 1])
+        with header_col1:
+            st.subheader(f"Topic: {topic} — {phase_label}")
+        with header_col2:
+            if phase == "structured":
+                if st.button("➡️ Move to Free Conversation"):
+                    lesson["phase"] = "conversation"
+                    st.rerun()
+        with header_col3:
+            if st.button("✅ Finish"):
+                lesson_svc.finish_lesson(target_lang, topic)
+                language_svc.update_streak(target_lang)
+                del st.session_state.active_lesson
+                st.session_state.pop("suggested_topics", None)
                 st.rerun()
-    with col3:
-        if st.button("✅ Finish"):
-            lesson_svc.finish_lesson(target_lang, topic)
-            language_svc.update_streak(target_lang)
-            del st.session_state.active_lesson
-            st.session_state.pop("suggested_topics", None)
-            st.rerun()
 
-    for msg in lesson["messages"]:
-        with st.chat_message(msg["role"]):
-            if msg["role"] == "assistant":
-                render_message_with_tts(msg["content"], lang=target_lang, key=msg["content"][:20])
-            else:
-                st.write(msg["content"])
+        for msg in lesson["messages"]:
+            with st.chat_message(msg["role"]):
+                if msg["role"] == "assistant":
+                    render_message_with_tts(msg["content"], lang=target_lang, key=msg["content"][:20])
+                else:
+                    st.write(msg["content"])
 
-    render_word_chips(lesson.get("word_suggestions", []), lang=target_lang, native_lang=native_lang)
+    with col2:
+        render_word_chips(
+            lesson.get("word_suggestions", []),
+            lang=target_lang,
+            native_lang=native_lang,
+            on_save=_on_save,
+        )
 
     user_input = st.chat_input("Your response...")
     if user_input:
@@ -145,5 +159,7 @@ def _render_active_lesson(lesson_svc, language_svc, target_lang, native_lang) ->
         )
 
         lesson["messages"].append({"role": "assistant", "content": result["response"]})
-        lesson["word_suggestions"] = result.get("word_suggestions", [])
+        lesson["word_suggestions"] = merge_word_suggestions(
+            lesson.get("word_suggestions", []), result.get("word_suggestions", [])
+        )
         st.rerun()
