@@ -2,7 +2,7 @@ import tempfile
 import streamlit as st
 from ui.state import get
 from ui.components.word_chip import render_word_chips, merge_word_suggestions
-from ui.components.audio_controls import render_tts_button, render_message_with_tts, render_stt_input
+from ui.components.audio_controls import render_message_with_tts, render_stt_input
 from ui.components.stream_display import stream_with_thinking
 
 
@@ -60,7 +60,9 @@ def render() -> None:
         for msg in messages:
             with st.chat_message(msg["role"]):
                 if msg["role"] == "assistant":
-                    render_message_with_tts(msg["content"], lang=target_lang, key=msg["content"][:20])
+                    render_message_with_tts(
+                        msg["content"], lang=target_lang, key=msg["content"][:20]
+                    )
                 else:
                     st.write(msg["content"])
 

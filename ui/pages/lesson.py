@@ -119,7 +119,9 @@ def _render_active_lesson(lesson_svc, language_svc, target_lang, native_lang) ->
         for msg in lesson["messages"]:
             with st.chat_message(msg["role"]):
                 if msg["role"] == "assistant":
-                    render_message_with_tts(msg["content"], lang=target_lang, key=msg["content"][:20])
+                    render_message_with_tts(
+                        msg["content"], lang=target_lang, key=msg["content"][:20]
+                    )
                 else:
                     st.write(msg["content"])
 
