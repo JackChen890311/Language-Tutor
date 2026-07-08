@@ -9,11 +9,20 @@ from ui.state import get
 # the angle brackets, rather than an exact "<speak>"/"</speak>" match.
 _SPEAK_BLOCK_RE = re.compile(r"<[^>]*\bspeak\b[^>]*>(.*?)</[^>]*\bspeak\b[^>]*>", re.DOTALL)
 
+# Matches the "(たべる)" furigana reading the model appends after kanji
+# words per PromptBuilder._furigana_rule. Only matches parens whose content
+# is entirely hiragana/katakana, so non-furigana parentheticals are untouched.
+_FURIGANA_RE = re.compile(r"\([ぁ-゚ァ-ー]+\)")
+
 
 def extract_speak_text(text: str) -> str:
     chunks = [m.group(1) for m in _SPEAK_BLOCK_RE.finditer(text)]
     stripped = [c.strip() for c in chunks if c.strip()]
     return " ".join(stripped) if stripped else text
+
+
+def strip_furigana(text: str) -> str:
+    return _FURIGANA_RE.sub("", text)
 
 
 def parse_message_segments(text: str) -> list[dict]:
@@ -56,7 +65,7 @@ def render_message_with_tts(text: str, lang: str, key: str) -> None:
                 if tts_available and st.button("🔊", key=f"tts_{key}_{i}", help="Play audio"):
                     with st.spinner(""):
                         tts = mm.get_tts()
-                        audio_bytes = tts.synthesize(seg["content"], lang=lang)
+                        audio_bytes = tts.synthesize(strip_furigana(seg["content"]), lang=lang)
                     st.html(autoplay_audio_html(audio_bytes))
 
 
@@ -67,7 +76,7 @@ def render_tts_button(text: str, lang: str, key: str) -> None:
     if st.button("🔊", key=f"tts_{key}", help="Play audio"):
         with st.spinner("Generating audio..."):
             tts = mm.get_tts()
-            audio_bytes = tts.synthesize(extract_speak_text(text), lang=lang)
+            audio_bytes = tts.synthesize(strip_furigana(extract_speak_text(text)), lang=lang)
         st.html(autoplay_audio_html(audio_bytes))
 
 

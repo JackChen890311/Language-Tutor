@@ -35,3 +35,14 @@ This is a page-level layout change only — Streamlit's existing `st.sidebar` (C
 ## Testing
 
 `merge_word_suggestions` gets direct unit tests: cap enforcement, dedup-and-reorder-to-front on a repeated word, and empty-input behavior. The existing `AppTest`-based Streamlit harness tests (matching the verification style used for the 2026-07-05 Lesson fixes) are extended to cover: sending a Chat message produces a suggestion chip that is still present after the subsequent rerun (regression test for the bug above), clicking "💾 Save" removes that chip from the panel, and a second Lesson turn's suggestions are added alongside — not in place of — the first turn's.
+
+## Fix: TTS spoke every kanji word twice because of inline furigana readings
+
+**Bug:** `PromptBuilder._furigana_rule` (`services/prompt_builder.py`, added prior to this date's docs) instructs the model to write kanji words immediately followed by their hiragana reading in parentheses — e.g. `食べる(たべる)` — for readability, *inside* the same `<speak>…</speak>` block used for TTS. `extract_speak_text`/`parse_message_segments` (`ui/components/audio_controls.py`) pass that speak-block content through unchanged, and `render_message_with_tts`/`render_tts_button` fed it straight into `tts.synthesize(...)`. Kokoro TTS has no concept of a "silent" parenthetical — it read the kanji form and then the hiragana reading as two consecutive words, so every kanji word in a sentence was audibly spoken twice.
+
+**Fix:** Added `strip_furigana(text: str) -> str` to `ui/components/audio_controls.py`, using `_FURIGANA_RE = re.compile(r"\([ぁ-゚ァ-ー]+\)")` to remove parenthetical spans whose content is entirely hiragana/katakana (the prolonged sound mark `ー` is included in the katakana range). Non-furigana parentheticals — e.g. explanatory asides in Latin script — are left alone since their content isn't pure kana. Both TTS call sites now strip furigana from the text handed to `tts.synthesize(...)`:
+
+- `render_message_with_tts`: `tts.synthesize(strip_furigana(seg["content"]), lang=lang)`
+- `render_tts_button`: `tts.synthesize(strip_furigana(extract_speak_text(text)), lang=lang)`
+
+The furigana reading is only stripped from what's spoken — the displayed `st.markdown(seg["content"])` text (and therefore the visible reading aid for the learner) is unaffected. This is a targeted fix at the TTS boundary rather than in `PromptBuilder`, since the furigana annotation is still wanted in the displayed/stored message text; it's specifically redundant, not wrong, when read aloud.

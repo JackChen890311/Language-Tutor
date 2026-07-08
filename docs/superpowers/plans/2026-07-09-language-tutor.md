@@ -545,3 +545,35 @@ Deviation found while running this step: `make lint` also flagged `ui/pages/chat
 ```bash
 git push origin main
 ```
+
+## Task 37: Fix duplicated TTS voice caused by furigana readings
+
+**Files:**
+- Modify: `ui/components/audio_controls.py`
+- Modify: `tests/test_speak_extraction.py`
+
+**Bug:** `PromptBuilder._furigana_rule` (see `docs/superpowers/specs/2026-07-09-language-tutor-design.md`) makes the model inline hiragana readings after kanji words inside `<speak>` tags, e.g. `食べる(たべる)`. `render_message_with_tts`/`render_tts_button` passed that text straight to `tts.synthesize(...)`, so Kokoro TTS spoke both the kanji word and its parenthetical reading — audibly duplicating every kanji word.
+
+- [x] **Step 1: Write failing tests for a `strip_furigana` helper**
+
+Added to `tests/test_speak_extraction.py`: tests asserting `strip_furigana("食べる(たべる)") == "食べる"`, multi-word readings are all stripped, non-kana parentheticals (e.g. `(not furigana)`) are left untouched, and text with no parens is unchanged.
+
+Run: `uv run pytest tests/test_speak_extraction.py -q`
+Expected: FAIL with `ImportError: cannot import name 'strip_furigana'`
+
+- [x] **Step 2: Implement `strip_furigana` and wire it into both TTS call sites**
+
+`ui/components/audio_controls.py` gains `_FURIGANA_RE = re.compile(r"\([ぁ-゚ァ-ー]+\)")` and `strip_furigana(text) -> str`, which strips parentheticals whose content is entirely hiragana/katakana. `render_message_with_tts` calls `tts.synthesize(strip_furigana(seg["content"]), lang=lang)`; `render_tts_button` calls `tts.synthesize(strip_furigana(extract_speak_text(text)), lang=lang)`. The displayed markdown text (`seg["content"]` shown via `st.markdown`) is untouched, so the visible furigana reading stays for the learner — only the audio synthesis input is stripped.
+
+- [x] **Step 3: Run the full test suite**
+
+Run: `make test`
+Expected: PASS, all 98 tests green (94 pre-existing + 4 new)
+
+- [x] **Step 4: Commit and push**
+
+```bash
+git add ui/components/audio_controls.py tests/test_speak_extraction.py docs/superpowers/plans/2026-07-09-language-tutor.md docs/superpowers/specs/2026-07-09-language-tutor-design.md
+git commit -m "fix: strip furigana readings before TTS synthesis to stop duplicated voice"
+git push origin main
+```

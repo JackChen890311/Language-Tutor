@@ -4,6 +4,7 @@ from ui.components.audio_controls import (
     extract_speak_text,
     parse_message_segments,
     autoplay_audio_html,
+    strip_furigana,
 )
 
 
@@ -96,3 +97,24 @@ def test_autoplay_html_contains_base64_audio():
 def test_autoplay_html_is_invisible():
     html = autoplay_audio_html(b"RIFF")
     assert 'height="0"' in html or "height:0" in html or "display:none" in html
+
+
+# --- strip_furigana ---
+
+
+def test_strip_furigana_removes_single_reading():
+    assert strip_furigana("食べる(たべる)") == "食べる"
+
+
+def test_strip_furigana_removes_multiple_readings():
+    text = "今日(きょう)は学校(がっこう)に行きます(いきます)。"
+    assert strip_furigana(text) == "今日は学校に行きます。"
+
+
+def test_strip_furigana_leaves_non_kana_parens_untouched():
+    text = "This is a test (not furigana)"
+    assert strip_furigana(text) == text
+
+
+def test_strip_furigana_no_parens_returns_original():
+    assert strip_furigana("こんにちは") == "こんにちは"
