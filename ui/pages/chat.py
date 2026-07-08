@@ -1,7 +1,7 @@
 import tempfile
 import streamlit as st
 from ui.state import get
-from ui.components.word_chip import render_word_chips
+from ui.components.word_chip import render_word_chips, merge_word_suggestions
 from ui.components.audio_controls import render_tts_button, render_message_with_tts, render_stt_input
 from ui.components.stream_display import stream_with_thinking
 
@@ -42,31 +42,50 @@ def render() -> None:
         return
 
     session_info = next((s for s in sessions if s["id"] == active_session), None)
-    if session_info:
-        st.subheader(session_info["name"])
 
-    messages = chat_svc.get_history(target_lang, active_session)
-    for msg in messages:
-        with st.chat_message(msg["role"]):
-            if msg["role"] == "assistant":
-                render_message_with_tts(msg["content"], lang=target_lang, key=msg["content"][:20])
-            else:
-                st.write(msg["content"])
+    chat_word_suggestions = st.session_state.setdefault("chat_word_suggestions", {})
 
-    uploaded_image = st.file_uploader(
-        "📷 Attach image (optional)",
-        type=["jpg", "jpeg", "png"],
-        key=f"img_{active_session}",
-        label_visibility="collapsed",
-    )
-    image_path = None
-    if uploaded_image:
-        import os
+    def _on_save(word: str) -> None:
+        chat_word_suggestions[active_session] = [
+            s for s in chat_word_suggestions.get(active_session, []) if s.get("word") != word
+        ]
 
-        suffix = os.path.splitext(uploaded_image.name)[1]
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
-            f.write(uploaded_image.getvalue())
-            image_path = f.name
+    col1, col2 = st.columns([3, 1])
+
+    with col1:
+        if session_info:
+            st.subheader(session_info["name"])
+
+        messages = chat_svc.get_history(target_lang, active_session)
+        for msg in messages:
+            with st.chat_message(msg["role"]):
+                if msg["role"] == "assistant":
+                    render_message_with_tts(msg["content"], lang=target_lang, key=msg["content"][:20])
+                else:
+                    st.write(msg["content"])
+
+        uploaded_image = st.file_uploader(
+            "📷 Attach image (optional)",
+            type=["jpg", "jpeg", "png"],
+            key=f"img_{active_session}",
+            label_visibility="collapsed",
+        )
+        image_path = None
+        if uploaded_image:
+            import os
+
+            suffix = os.path.splitext(uploaded_image.name)[1]
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
+                f.write(uploaded_image.getvalue())
+                image_path = f.name
+
+    with col2:
+        render_word_chips(
+            chat_word_suggestions.get(active_session, []),
+            lang=target_lang,
+            native_lang=native_lang,
+            on_save=_on_save,
+        )
 
     stt_text = render_stt_input(key=active_session)
     user_input = st.chat_input("Type a message...")
@@ -94,8 +113,9 @@ def render() -> None:
             user_text=final_input,
             raw_response=collector.full_text,
         )
-        render_word_chips(
-            result.get("word_suggestions", []), lang=target_lang, native_lang=native_lang
+        chat_word_suggestions[active_session] = merge_word_suggestions(
+            chat_word_suggestions.get(active_session, []),
+            result.get("word_suggestions", []),
         )
 
         language_svc.update_streak(target_lang)
