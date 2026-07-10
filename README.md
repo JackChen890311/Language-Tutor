@@ -55,7 +55,7 @@ uv sync
 ### 2. Download the LLM (required)
 
 ```bash
-hf download mlx-community/Qwen3.6-35B-A3B-4bit
+hf download mlx-community/gemma-4-26b-a4b-it-4bit
 ```
 
 The LLM is the only required model. The others (VLM, TTS, STT) are optional and can be downloaded later from the Settings page.
@@ -76,7 +76,7 @@ Download any of these from **Settings → Model Status** to unlock additional fe
 
 | Feature | Model | Command |
 |---|---|---|
-| Image chat (VLM) | `mlx-community/Qwen3-VL-8B-Instruct` | `hf download mlx-community/Qwen3-VL-8B-Instruct` |
+| Image chat (VLM) | `mlx-community/gemma-4-26b-a4b-it-4bit` | already downloaded if you did step 2 — LLM and VLM share the same model by default |
 | TTS playback | `prince-canuma/Kokoro-82M` | `hf download prince-canuma/Kokoro-82M` |
 | Voice input (STT) | `mlx-community/whisper-large-v3` | `hf download mlx-community/whisper-large-v3` |
 
@@ -88,8 +88,8 @@ Edit `config/models.json` to swap any model slot:
 
 ```json
 {
-  "llm": { "provider": "mlx", "model": "mlx-community/Qwen3.6-35B-A3B-4bit" },
-  "vlm": { "provider": "mlx", "model": "mlx-community/Qwen3-VL-8B-Instruct" },
+  "llm": { "provider": "mlx", "model": "mlx-community/gemma-4-26b-a4b-it-4bit" },
+  "vlm": { "provider": "mlx", "model": "mlx-community/gemma-4-26b-a4b-it-4bit" },
   "tts": { "provider": "mlx-audio", "model": "prince-canuma/Kokoro-82M" },
   "stt": { "provider": "mlx-audio", "model": "mlx-community/whisper-large-v3" }
 }
@@ -116,8 +116,8 @@ Services (business logic, no UI imports)
     │
     ▼
 Models (MLX inference, lazy-loaded)
-    ├── MLXLLMModel        — Qwen3 LLM (thinking-mode aware)
-    ├── MLXVLMModel        — Qwen3-VL vision model
+    ├── MLXLLMModel        — Gemma LLM (thinking-mode aware if the tokenizer supports it)
+    ├── MLXVLMModel        — Gemma vision-language model
     ├── MLXTTSModel        — Kokoro TTS
     └── WhisperModel       — Whisper STT
     │
