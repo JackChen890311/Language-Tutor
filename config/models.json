@@ -1,6 +1,6 @@
 {
-  "llm": { "provider": "mlx", "model": "mlx-community/Qwen3.6-35B-A3B-4bit" },
-  "vlm": { "provider": "mlx", "model": "mlx-community/Qwen3-VL-8B-Instruct" },
+  "llm": { "provider": "mlx", "model": "mlx-community/gemma-4-26b-a4b-it-4bit" },
+  "vlm": { "provider": "mlx", "model": "mlx-community/gemma-4-26b-a4b-it-4bit" },
   "tts": { "provider": "mlx-audio", "model": "prince-canuma/Kokoro-82M" },
   "stt": { "provider": "mlx-audio", "model": "mlx-community/whisper-large-v3" }
 }
