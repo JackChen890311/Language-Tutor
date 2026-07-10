@@ -42,9 +42,15 @@ class MLXVLMModel(BaseVLM):
             if system_prompt:
                 user_text = f"{system_prompt}\n\n{user_text}"
             prompt = apply_chat_template(self._processor, self._config, user_text, num_images=1)
-            return generate(
-                self._model, self._processor, image_path, prompt, max_tokens=1024, verbose=False
+            result = generate(
+                self._model,
+                self._processor,
+                prompt=prompt,
+                image=image_path,
+                max_tokens=1024,
+                verbose=False,
             )
+            return result.text
         finally:
             if tmp_path:
                 os.unlink(tmp_path)
