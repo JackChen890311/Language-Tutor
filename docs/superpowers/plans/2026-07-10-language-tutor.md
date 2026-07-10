@@ -63,3 +63,32 @@ git add models/mlx_vlm.py docs/superpowers/plans/2026-07-10-language-tutor.md do
 git commit -m "fix: correct mlx_vlm.generate() argument order and unwrap GenerationResult.text"
 git push origin main
 ```
+
+## Task 42: Suppress benign mel-filter warning on VLM load
+
+**Files:**
+- Modify: `models/mlx_vlm.py`
+
+**Warning:** Loading the VLM (`mlx_vlm.load(...)` inside `MLXVLMModel._ensure_loaded`) printed `UserWarning: At least one mel filter has all zero values. The value for num_mel_filters (128) may be set too high. Or, the value for num_frequency_bins (257) may be set too low.` on every load.
+
+- [x] **Step 1: Root-cause investigation**
+
+Traced the warning to `transformers.audio_utils.mel_filter_bank` (`.venv/.../transformers/audio_utils.py:549`), called from `Gemma4AudioFeatureExtractor.__init__` (`.venv/.../transformers/models/gemma4/feature_extraction_gemma4.py:149`), which builds its mel filterbank eagerly at construction time. `mlx-community/gemma-4-26b-a4b-it-4bit`'s `processor_config.json` bundles this audio feature extractor (`num_mel_filters: 128`, `fft_length: 512` → `num_frequency_bins = fft_length // 2 + 1 = 257`) as part of its `Gemma4Processor`, even though nothing in this codebase ever sends audio to the VLM (`grep -rn "audio" models/mlx_vlm.py services/chat_service.py` — no hits). Those specific filter dimensions are the model repo's own published config, not a value this codebase sets or should edit. So the warning fires purely from loading the processor, is unrelated to our code path, and is otherwise-harmless noise.
+
+- [x] **Step 2: Suppress narrowly at the load call**
+
+In `models/mlx_vlm.py`'s `_ensure_loaded`, wrapped the `load(self._model_path)` call in `warnings.catch_warnings()` with `warnings.filterwarnings("ignore", message="At least one mel filter has all zero values")` — scoped to just that call and matched by message text, so no other warning category is silenced.
+
+- [x] **Step 3: Verify**
+
+Ran `MLXVLMModel.load()` under `warnings.catch_warnings(record=True)` with `simplefilter("always")`: zero mel-filter warnings recorded (previously always fired once per load). Re-ran the same red-test-image `generate()` check as Task 41 to confirm the model still loads and produces a correct answer.
+
+- [x] **Step 4: Run tests and lint, commit**
+
+Run: `make test` (99 passed), `make lint` (no new errors on `models/mlx_vlm.py`; pre-existing out-of-scope `ui/pages/word_list.py` F401 unchanged).
+
+```bash
+git add models/mlx_vlm.py docs/superpowers/plans/2026-07-10-language-tutor.md docs/superpowers/specs/2026-07-10-language-tutor-design.md
+git commit -m "fix: suppress benign mel-filter-all-zero warning on VLM load"
+git push origin main
+```

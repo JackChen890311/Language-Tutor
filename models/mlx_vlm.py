@@ -1,4 +1,5 @@
 import gc
+import warnings
 from typing import Iterator
 
 from models.base import BaseVLM
@@ -16,7 +17,16 @@ class MLXVLMModel(BaseVLM):
             from mlx_vlm import load
             from mlx_vlm.utils import load_config
 
-            self._model, self._processor = load(self._model_path)
+            # Some multimodal processors (e.g. Gemma4Processor) bundle an audio feature
+            # extractor that eagerly builds its mel filterbank at construction time, even
+            # though we never send audio through this VLM. With that extractor's num_mel_filters
+            # baked into the model repo's own processor_config.json, the filterbank has
+            # legitimately empty rows and transformers warns about it — noise, not our bug.
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore", message="At least one mel filter has all zero values"
+                )
+                self._model, self._processor = load(self._model_path)
             self._config = load_config(self._model_path)
 
     def load(self) -> None:

@@ -31,3 +31,21 @@ Keyword arguments were chosen over just fixing the positional order so that a fu
 **Verification:** No test in `tests/` calls into the real `mlx_vlm` library — `MLXVLMModel` is a thin adapter over a heavyweight local-inference library (loads a multi-GB model file), and a mocked unit test would not have caught this exact failure mode (a real signature/return-type mismatch in the dependency). Verified by direct exercise instead: generated a solid-red 64×64 JPEG, called `MLXVLMModel("mlx-community/gemma-4-26b-a4b-it-4bit").generate(...)` against it directly (bypassing Streamlit), and confirmed the call both loads the actual image (rather than the error path) and returns a plain `str` — the model correctly answered that the image is red.
 
 **Scope note:** `config/models.json` had an uncommitted, pre-existing change (switching both `llm` and `vtm` model slots to `mlx-community/gemma-4-26b-a4b-it-4bit`) already present in the working tree before this investigation started. That change is the user's own in-progress experiment, unrelated to this bug (the argument-order bug applies to whichever model is configured in the `vlm` slot, since it's in the shared `mlx_vlm.generate()` call path), and was left untouched.
+
+## Fix: benign `UserWarning: At least one mel filter has all zero values` on every VLM load
+
+**Warning found:** every call to `MLXVLMModel._ensure_loaded` (i.e. every VLM load) printed a `transformers` `UserWarning` about an all-zero mel filter. This comes from `transformers.audio_utils.mel_filter_bank`, invoked eagerly inside `Gemma4AudioFeatureExtractor.__init__` when `mlx_vlm.load(...)` constructs the `Gemma4Processor` for `mlx-community/gemma-4-26b-a4b-it-4bit`. The processor's `processor_config.json` (published on the model's HF repo, cached locally after `mlx_vlm.load`) bundles an audio feature extractor with `num_mel_filters: 128` and `fft_length: 512` (→ `num_frequency_bins = 512 // 2 + 1 = 257`); with those specific dimensions, `mel_filter_bank`'s slaney-normalized triangular filterbank legitimately produces at least one all-zero-valued filter row, which the library warns about.
+
+This is inherent to the model repo's own bundled audio-extractor config — not a value this codebase sets, computes, or should edit (editing the cached `processor_config.json` directly would violate the same "pass the HF repo id straight through, no hidden overrides" principle noted in `CLAUDE.md`'s Architecture section, and would be silently reverted by a fresh `mlx_vlm.load()`/re-download anyway). It is also functionally irrelevant here: nothing in this codebase ever sends audio through the VLM (confirmed via `grep -rn "audio" models/mlx_vlm.py services/chat_service.py` — no hits); the audio feature extractor is unused dead weight bundled inside the multimodal processor, and its filterbank is built once at construction regardless of whether audio ever flows through it.
+
+**Fix:** narrowly suppressed the specific warning around the `load()` call site in `models/mlx_vlm.py`'s `_ensure_loaded`:
+
+```python
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", message="At least one mel filter has all zero values")
+    self._model, self._processor = load(self._model_path)
+```
+
+Scoped via `catch_warnings()` (restored after the `with` block) and matched by message text, so no other warning category — from this call or elsewhere — is silenced.
+
+**Verification:** loaded the model under `warnings.catch_warnings(record=True)` with `simplefilter("always")` and asserted zero mel-filter warnings were recorded (previously always exactly one per load); re-ran the same direct `generate()` check against a solid-red test image used in the prior fix to confirm model loading and image understanding still work correctly.
