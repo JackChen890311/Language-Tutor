@@ -92,10 +92,26 @@ def _render_browse(word_svc, target_lang, native_lang) -> None:
                     )
             with col2:
                 stats = word.get("review_stats", {})
+                # Ensure we have proper defaults for all fields
+                last_reviewed = stats.get("last_reviewed")
+                correct_count = stats.get("correct", 0)
+                incorrect_count = stats.get("incorrect", 0)
+                is_reviewed = last_reviewed is not None
+
                 st.caption(
-                    f"✅ {stats.get('correct', 0)} / ❌ {stats.get('incorrect', 0)}\n"
-                    f"Last: {stats.get('last_reviewed') or 'never'}"
+                    f"✅ {correct_count} / ❌ {incorrect_count}\n"
+                    f"Last: {last_reviewed or 'never'}"
                 )
+
+                # Add manual review status toggle
+                if is_reviewed:
+                    if st.button("Mark as Not Reviewed", key=f"unreview_{word['id']}"):
+                        word_svc.set_review_status(target_lang, word["id"], False)
+                        st.rerun()
+                else:
+                    if st.button("Mark as Reviewed", key=f"review_{word['id']}"):
+                        word_svc.set_review_status(target_lang, word["id"], True)
+                        st.rerun()
 
 
 def _render_add(word_svc, target_lang, native_lang) -> None:

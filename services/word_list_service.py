@@ -110,3 +110,26 @@ class WordListService:
                     stats["incorrect"] = stats.get("incorrect", 0) + 1
                 break
         self._store.save_wordlist(lang, words)
+
+    def set_review_status(self, lang: str, word_id: str, reviewed: bool) -> None:
+        """Set the review status of a word manually"""
+        words = self._store.load_wordlist(lang)
+        for w in words:
+            if w["id"] == word_id:
+                stats = w.setdefault(
+                    "review_stats", {"last_reviewed": None, "correct": 0, "incorrect": 0}
+                )
+                if reviewed:
+                    stats["last_reviewed"] = date.today().isoformat()
+                else:
+                    stats["last_reviewed"] = None
+                break
+        self._store.save_wordlist(lang, words)
+
+    def clear_all_review_history(self, lang: str) -> None:
+        """Clear all review history for all words in the word list"""
+        words = self._store.load_wordlist(lang)
+        for w in words:
+            # Reset only the review stats, keep everything else
+            w["review_stats"] = {"last_reviewed": None, "correct": 0, "incorrect": 0}
+        self._store.save_wordlist(lang, words)
