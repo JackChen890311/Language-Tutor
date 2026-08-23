@@ -70,6 +70,7 @@ def render() -> None:
 
             with col1:
                 st.markdown("### Column 1")
+                # Use a temporary approach to display just these words
                 for suggestion in col1_words:
                     word = suggestion.get("word", "")
                     reading = suggestion.get("reading", "")
