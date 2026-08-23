@@ -56,57 +56,28 @@ def render() -> None:
         word_suggestions = get_word_suggestions()
 
         if word_suggestions:
-            col1, col2, col3 = st.columns([1, 1, 1])
+            col1, col2, col3, col4= st.columns([1, 1, 1, 1])
 
             # Calculate split points for even distribution
             total_words = len(word_suggestions)
-            col1_count = (total_words + 2) // 3  # Round up to handle odd numbers
-            col2_count = (total_words + 1) // 3
+            col1_count = (total_words + 3) // 4  # Round up to handle odd numbers
+            col2_count = (total_words + 2) // 4
+            col3_count = (total_words + 1) // 4
 
             # Split words into three groups
             col1_words = word_suggestions[:col1_count]
             col2_words = word_suggestions[col1_count:col1_count + col2_count]
-            col3_words = word_suggestions[col1_count + col2_count:]
+            col3_words = word_suggestions[col1_count + col2_count:col1_count + col2_count + col3_count]
+            col4_words = word_suggestions[col1_count + col2_count + col3_count:]
 
             with col1:
-                # Use a temporary approach to display just these words
-                for suggestion in col1_words:
-                    word = suggestion.get("word", "")
-                    reading = suggestion.get("reading", "")
-                    if reading:
-                        st.write(f"{word} ({reading})")
-                    else:
-                        st.write(word)
-
+                render_word_chips(word_list=col1_words, lang=target_lang, native_lang=native_lang)
             with col2:
-                for suggestion in col2_words:
-                    word = suggestion.get("word", "")
-                    reading = suggestion.get("reading", "")
-                    if reading:
-                        st.write(f"{word} ({reading})")
-                    else:
-                        st.write(word)
-
+                render_word_chips(word_list=col2_words, lang=target_lang, native_lang=native_lang)
             with col3:
-                for suggestion in col3_words:
-                    word = suggestion.get("word", "")
-                    reading = suggestion.get("reading", "")
-                    if reading:
-                        st.write(f"{word} ({reading})")
-                    else:
-                        st.write(word)
-        else:
-            # If no words, show empty columns
-            col1, col2, col3 = st.columns([1, 1, 1])
-            with col1:
-                st.markdown("### Column 1")
-                st.write("No suggestions available")
-            with col2:
-                st.markdown("### Column 2")
-                st.write("No suggestions available")
-            with col3:
-                st.markdown("### Column 3")
-                st.write("No suggestions available")
+                render_word_chips(word_list=col3_words, lang=target_lang, native_lang=native_lang)
+            with col4:
+                render_word_chips(word_list=col4_words, lang=target_lang, native_lang=native_lang)
 
     # Main chat area below (single column for actual chatting)
     st.markdown("---")
