@@ -52,14 +52,63 @@ def render() -> None:
     # Show word suggestions in 3-column layout at top (when toggled)
     if show_suggestions:
         st.markdown("---")
-        col1, col2, col3 = st.columns([1, 1, 1])
-        with col1:
-            render_word_chips(lang=target_lang, native_lang=native_lang)
-        # Empty columns to maintain the structure
-        with col2:
-            pass
-        with col3:
-            pass
+        # Get all word suggestions to distribute evenly across columns
+        word_suggestions = get_word_suggestions()
+
+        if word_suggestions:
+            col1, col2, col3 = st.columns([1, 1, 1])
+
+            # Calculate split points for even distribution
+            total_words = len(word_suggestions)
+            col1_count = (total_words + 2) // 3  # Round up to handle odd numbers
+            col2_count = (total_words + 1) // 3
+
+            # Split words into three groups
+            col1_words = word_suggestions[:col1_count]
+            col2_words = word_suggestions[col1_count:col1_count + col2_count]
+            col3_words = word_suggestions[col1_count + col2_count:]
+
+            with col1:
+                st.markdown("### Column 1")
+                for suggestion in col1_words:
+                    word = suggestion.get("word", "")
+                    reading = suggestion.get("reading", "")
+                    if reading:
+                        st.write(f"{word} ({reading})")
+                    else:
+                        st.write(word)
+
+            with col2:
+                st.markdown("### Column 2")
+                for suggestion in col2_words:
+                    word = suggestion.get("word", "")
+                    reading = suggestion.get("reading", "")
+                    if reading:
+                        st.write(f"{word} ({reading})")
+                    else:
+                        st.write(word)
+
+            with col3:
+                st.markdown("### Column 3")
+                for suggestion in col3_words:
+                    word = suggestion.get("word", "")
+                    reading = suggestion.get("reading", "")
+                    if reading:
+                        st.write(f"{word} ({reading})")
+                    else:
+                        st.write(word)
+        else:
+            # If no words, show empty columns
+            col1, col2, col3 = st.columns([1, 1, 1])
+            with col1:
+                st.markdown("### Column 1")
+                st.write("No suggestions available")
+            with col2:
+                st.markdown("### Column 2")
+                st.write("No suggestions available")
+            with col3:
+                st.markdown("### Column 3")
+                st.write("No suggestions available")
 
     # Main chat area below (single column for actual chatting)
     st.markdown("---")
