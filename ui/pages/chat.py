@@ -69,7 +69,6 @@ def render() -> None:
             col3_words = word_suggestions[col1_count + col2_count:]
 
             with col1:
-                st.markdown("### Column 1")
                 # Use a temporary approach to display just these words
                 for suggestion in col1_words:
                     word = suggestion.get("word", "")
@@ -80,7 +79,6 @@ def render() -> None:
                         st.write(word)
 
             with col2:
-                st.markdown("### Column 2")
                 for suggestion in col2_words:
                     word = suggestion.get("word", "")
                     reading = suggestion.get("reading", "")
@@ -90,7 +88,6 @@ def render() -> None:
                         st.write(word)
 
             with col3:
-                st.markdown("### Column 3")
                 for suggestion in col3_words:
                     word = suggestion.get("word", "")
                     reading = suggestion.get("reading", "")
