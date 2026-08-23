@@ -1,7 +1,7 @@
 import tempfile
 import streamlit as st
 from ui.state import get
-from ui.components.word_chip import render_word_chips, add_word_suggestions
+from ui.components.word_chip import render_word_chips, add_word_suggestions, get_word_suggestions
 from ui.components.audio_controls import render_message_with_tts, render_stt_input
 from ui.components.stream_display import stream_with_thinking
 
@@ -43,8 +43,28 @@ def render() -> None:
 
     session_info = next((s for s in sessions if s["id"] == active_session), None)
 
-    col1, col2 = st.columns([3, 1])
+    # Toggle button for word suggestions at top of chat
+    show_suggestions = st.session_state.get("show_word_suggestions", False)
+    if st.button("💡 Word Suggestions" + (" ✅" if show_suggestions else " 🔄"), key="toggle_suggestions"):
+        st.session_state.show_word_suggestions = not show_suggestions
+        st.rerun()
 
+    # Show word suggestions in 3-column layout at top (when toggled)
+    if show_suggestions:
+        st.markdown("---")
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col1:
+            render_word_chips(lang=target_lang, native_lang=native_lang)
+        # Empty columns to maintain the structure
+        with col2:
+            pass
+        with col3:
+            pass
+
+    # Main chat area below (single column for actual chatting)
+    st.markdown("---")
+
+    col1 = st.container()
     with col1:
         if session_info:
             st.subheader(session_info["name"])
@@ -73,9 +93,6 @@ def render() -> None:
             with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
                 f.write(uploaded_image.getvalue())
                 image_path = f.name
-
-    with col2:
-        render_word_chips(lang=target_lang, native_lang=native_lang)
 
     stt_text = render_stt_input(key=active_session)
     user_input = st.chat_input("Type a message...")
