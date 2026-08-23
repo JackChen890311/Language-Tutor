@@ -45,7 +45,7 @@ def render() -> None:
 
     # Toggle button for word suggestions at top of chat
     show_suggestions = st.session_state.get("show_word_suggestions", False)
-    if st.button("💡 Word Suggestions" + (" ✅" if show_suggestions else " 🔄"), key="toggle_suggestions"):
+    if st.button("💡 Word Suggestions"):
         st.session_state.show_word_suggestions = not show_suggestions
         st.rerun()
 

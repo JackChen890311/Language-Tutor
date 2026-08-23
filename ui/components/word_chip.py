@@ -39,7 +39,6 @@ def add_word_suggestions(new: list[dict], cap: int = 12) -> None:
 
 def render_word_chips(word_list:list[dict], lang: str, native_lang: str) -> None:
     st.markdown(_CHIP_CSS, unsafe_allow_html=True)
-    # st.caption("💡 Word suggestions")
     for i, suggestion in enumerate(word_list):
         word = suggestion.get("word", "")
         reading = suggestion.get("reading", "")
@@ -52,7 +51,3 @@ def render_word_chips(word_list:list[dict], lang: str, native_lang: str) -> None
             word_svc = get("word_svc")
             word_svc.add_word(lang, native_lang, word, reading=reading, source="chat")
             st.toast(f"✅ Saved: {word}")
-            # st.session_state[_STATE_KEY] = [
-            #     s for s in word_list if s.get("word") != word
-            # # ]
-            # st.rerun()
