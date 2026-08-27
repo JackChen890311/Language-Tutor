@@ -3,6 +3,16 @@ from ui.state import get
 from ui.components.audio_controls import autoplay_audio_html
 
 
+def _has_kanji(text: str) -> bool:
+    return any("\u4e00" <= ch <= "\u9fff" or "\u3400" <= ch <= "\u4dbf" for ch in text)
+
+
+def _format_word_display(word: str, reading: str = "") -> str:
+    if _has_kanji(word) and reading:
+        return f"{word}({reading})"
+    return word
+
+
 def render() -> None:
     st.title("📚 Word List")
 
@@ -45,14 +55,15 @@ def _render_browse(word_svc, target_lang, native_lang) -> None:
 
     for word in words:
         translation = word.get("translation", "")
-        header = f"**{word['word']}** {word.get('reading', '')}"
+        display = _format_word_display(word["word"], word.get("reading", ""))
+        header = f"**{display}**"
         if translation:
             header += f" — {translation}"
         with st.expander(header):
             # Word + audio button row
             word_col, audio_col = st.columns([8, 1])
             with word_col:
-                st.markdown(f"### {word['word']} {word.get('reading', '')}")
+                st.markdown(f"### {display}")
                 if translation:
                     st.markdown(f"**{translation}**")
             with audio_col:
