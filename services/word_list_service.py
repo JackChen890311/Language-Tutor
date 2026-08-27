@@ -62,6 +62,14 @@ class WordListService:
         except json.JSONDecodeError:
             return {}
 
+    def delete_word(self, lang: str, word_id: str) -> bool:
+        words = self._store.load_wordlist(lang)
+        new_words = [w for w in words if w["id"] != word_id]
+        if len(new_words) == len(words):
+            return False
+        self._store.save_wordlist(lang, new_words)
+        return True
+
     def get_word(self, lang: str, word_id: str) -> dict | None:
         words = self._store.load_wordlist(lang)
         return next((w for w in words if w["id"] == word_id), None)

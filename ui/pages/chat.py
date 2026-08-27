@@ -56,7 +56,7 @@ def render() -> None:
         word_suggestions = get_word_suggestions()
 
         if word_suggestions:
-            col1, col2, col3, col4= st.columns([1, 1, 1, 1])
+            col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
 
             # Calculate split points for even distribution
             total_words = len(word_suggestions)
@@ -66,9 +66,11 @@ def render() -> None:
 
             # Split words into three groups
             col1_words = word_suggestions[:col1_count]
-            col2_words = word_suggestions[col1_count:col1_count + col2_count]
-            col3_words = word_suggestions[col1_count + col2_count:col1_count + col2_count + col3_count]
-            col4_words = word_suggestions[col1_count + col2_count + col3_count:]
+            col2_words = word_suggestions[col1_count : col1_count + col2_count]
+            col3_words = word_suggestions[
+                col1_count + col2_count : col1_count + col2_count + col3_count
+            ]
+            col4_words = word_suggestions[col1_count + col2_count + col3_count :]
 
             with col1:
                 render_word_chips(word_list=col1_words, lang=target_lang, native_lang=native_lang)

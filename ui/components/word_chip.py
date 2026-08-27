@@ -37,7 +37,7 @@ def add_word_suggestions(new: list[dict], cap: int = 12) -> None:
     st.session_state[_STATE_KEY] = merge_word_suggestions(get_word_suggestions(), new, cap=cap)
 
 
-def render_word_chips(word_list:list[dict], lang: str, native_lang: str) -> None:
+def render_word_chips(word_list: list[dict], lang: str, native_lang: str) -> None:
     st.markdown(_CHIP_CSS, unsafe_allow_html=True)
     for i, suggestion in enumerate(word_list):
         word = suggestion.get("word", "")

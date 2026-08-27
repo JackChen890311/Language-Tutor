@@ -1,6 +1,6 @@
 import streamlit as st
 from ui.state import get
-from ui.components.audio_controls import render_tts_button, autoplay_audio_html
+from ui.components.audio_controls import autoplay_audio_html
 
 
 def render() -> None:
@@ -99,8 +99,7 @@ def _render_browse(word_svc, target_lang, native_lang) -> None:
                 is_reviewed = last_reviewed is not None
 
                 st.caption(
-                    f"✅ {correct_count} / ❌ {incorrect_count}\n"
-                    f"Last: {last_reviewed or 'never'}"
+                    f"✅ {correct_count} / ❌ {incorrect_count}\nLast: {last_reviewed or 'never'}"
                 )
 
                 # Add manual review status toggle
@@ -111,6 +110,25 @@ def _render_browse(word_svc, target_lang, native_lang) -> None:
                 else:
                     if st.button("Mark as Reviewed", key=f"review_{word['id']}"):
                         word_svc.set_review_status(target_lang, word["id"], True)
+                        st.rerun()
+
+                st.divider()
+                confirm_key = f"confirm_delete_{word['id']}"
+                if st.session_state.get(confirm_key):
+                    st.caption(f"Delete **{word['word']}**?")
+                    dcol1, dcol2 = st.columns(2)
+                    with dcol1:
+                        if st.button("Yes, delete", key=f"yes_del_{word['id']}"):
+                            word_svc.delete_word(target_lang, word["id"])
+                            del st.session_state[confirm_key]
+                            st.rerun()
+                    with dcol2:
+                        if st.button("Cancel", key=f"no_del_{word['id']}"):
+                            del st.session_state[confirm_key]
+                            st.rerun()
+                else:
+                    if st.button("🗑️ Delete", key=f"del_{word['id']}"):
+                        st.session_state[confirm_key] = True
                         st.rerun()
 
 
