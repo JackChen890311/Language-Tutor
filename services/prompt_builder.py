@@ -123,6 +123,18 @@ class PromptBuilder:
             f"Be concise and factual."
         )
 
+    def session_title_prompt(self, native_lang: str) -> str:
+        return (
+            f"You generate short chat session titles.\n\n"
+            f"Given the user's first message, produce a concise title "
+            f"(4-12 characters) describing their intent, "
+            f"written in {self._lang_name(native_lang)} ({native_lang}).\n"
+            f"Rules:\n"
+            f"- Output ONLY the title, no quotes, no punctuation, no explanation.\n"
+            f"- Never exceed 20 characters.\n"
+            f"{self._chinese_rule(native_lang)}"
+        )
+
     def lesson_system_prompt(
         self,
         native_lang: str,

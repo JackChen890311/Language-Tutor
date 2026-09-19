@@ -19,8 +19,9 @@ def render() -> None:
         sessions = store.list_chat_sessions(target_lang)
 
         if st.button("➕ New Chat"):
-            name = f"Chat {len(sessions) + 1}"
+            name = "新對話"
             st.session_state.active_session = store.create_chat_session(target_lang, name)
+            st.session_state.pop("renaming_session", None)
             st.rerun()
 
         for s in reversed(sessions):
@@ -87,7 +88,32 @@ def render() -> None:
     col1 = st.container()
     with col1:
         if session_info:
-            st.subheader(session_info["name"])
+            title_col, rename_col = st.columns([4, 1])
+            with title_col:
+                st.subheader(session_info["name"])
+            with rename_col:
+                if st.button("✏️", key=f"rename_{active_session}", help="重新命名"):
+                    st.session_state.renaming_session = active_session
+                    st.rerun()
+            if st.session_state.get("renaming_session") == active_session:
+                new_name = st.text_input(
+                    "聊天室名稱",
+                    value=session_info["name"],
+                    key=f"rename_input_{active_session}",
+                    max_chars=30,
+                )
+                save_col, cancel_col = st.columns(2)
+                with save_col:
+                    if st.button("儲存", key=f"rename_save_{active_session}"):
+                        if store.rename_chat_session(target_lang, active_session, new_name):
+                            st.session_state.pop("renaming_session", None)
+                            st.rerun()
+                        else:
+                            st.warning("名稱不可為空")
+                with cancel_col:
+                    if st.button("取消", key=f"rename_cancel_{active_session}"):
+                        st.session_state.pop("renaming_session", None)
+                        st.rerun()
 
         messages = chat_svc.get_history(target_lang, active_session)
         for msg in messages:
@@ -119,6 +145,8 @@ def render() -> None:
     final_input = stt_text or user_input
 
     if final_input:
+        history_before = chat_svc.get_history(target_lang, active_session)
+        is_first_message = len(history_before) == 0
         with st.chat_message("user"):
             st.write(final_input)
 
@@ -141,6 +169,13 @@ def render() -> None:
             raw_response=collector.full_text,
         )
         add_word_suggestions(result.get("word_suggestions", []))
+
+        if is_first_message:
+            try:
+                auto_title = chat_svc.generate_session_title(native_lang, final_input)
+                store.rename_chat_session(target_lang, active_session, auto_title)
+            except Exception:
+                pass
 
         language_svc.update_streak(target_lang)
         st.rerun()

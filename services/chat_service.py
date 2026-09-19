@@ -161,3 +161,28 @@ class ChatService:
 
     def get_history(self, lang: str, session_id: str) -> list[dict]:
         return self._store.load_chat_messages(lang, session_id)
+
+    @staticmethod
+    def _clean_title(raw: str, fallback_text: str) -> str:
+        title = (raw or "").strip().replace("\n", " ").strip(" \"'「」『』")
+        title = " ".join(title.split())
+        if not title:
+            title = fallback_text.strip().replace("\n", " ")
+            title = " ".join(title.split())
+        if len(title) > 20:
+            title = title[:20].rstrip()
+        return title or "新對話"
+
+    def generate_session_title(self, native_lang: str, user_text: str) -> str:
+        fallback = (user_text or "").strip()[:15] or "新對話"
+        try:
+            llm = self._mm.get_llm()
+            system_prompt = self._pb.session_title_prompt(native_lang)
+            raw = llm.generate(
+                [{"role": "user", "content": user_text}],
+                system_prompt=system_prompt,
+                enable_thinking=False,
+            )
+        except Exception:
+            return fallback
+        return self._clean_title(raw, fallback)

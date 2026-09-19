@@ -97,6 +97,24 @@ class DataStore:
         path = self._sessions_index_path(lang)
         path.write_text(json.dumps(sessions, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    def rename_chat_session(self, lang: str, session_id: str, new_name: str) -> bool:
+        name = (new_name or "").strip()
+        if not name:
+            return False
+        name = name[:30]
+        sessions = self.list_chat_sessions(lang)
+        updated = False
+        for s in sessions:
+            if s["id"] == session_id:
+                s["name"] = name
+                updated = True
+                break
+        if not updated:
+            return False
+        path = self._sessions_index_path(lang)
+        path.write_text(json.dumps(sessions, ensure_ascii=False, indent=2), encoding="utf-8")
+        return True
+
     def _chat_session_dir(self, lang: str, session_id: str) -> Path:
         d = self.root / lang / "chats" / session_id
         d.mkdir(parents=True, exist_ok=True)
