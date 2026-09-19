@@ -59,7 +59,7 @@ class PromptBuilder:
             f"Do NOT tag explanations, translations, or {self._lang_name(native_lang)} text.\n"
             f"- When you introduce a single vocabulary word (not a phrase or sentence) "
             f"likely to be new to a learner, append exactly one marker per unique word:\n"
-            f'  <!--WORD_SUGGESTION:{{"word": "<single word>", "reading": "<reading/pronunciation>"}}-->\n'
+            f'  <!--WORD:{{"word": "<single word>", "reading": "<reading/pronunciation>"}}-->\n'
             f"  Do NOT repeat the same word marker twice.\n"
             f"{self._furigana_rule(target_lang)}"
             f"{self._chinese_rule(native_lang)}"
@@ -162,7 +162,7 @@ class PromptBuilder:
             f"Do NOT tag explanations, translations, or {self._lang_name(native_lang)} text.\n"
             f"When you introduce a single vocabulary word (not a phrase or sentence) "
             f"likely to be new to a learner, append exactly one marker per unique word:\n"
-            f'<!--WORD_SUGGESTION:{{"word": "<single word>", "reading": "<reading/pronunciation>"}}-->\n'
+            f'<!--WORD:{{"word": "<single word>", "reading": "<reading/pronunciation>"}}-->\n'
             f"Do NOT repeat the same word marker twice.\n"
             f"{self._furigana_rule(target_lang)}"
             f"{self._chinese_rule(native_lang)}"

@@ -7,11 +7,11 @@ from model_manager import ModelManager
 from services.memory_service import MemoryService
 from services.prompt_builder import PromptBuilder
 
-_WORD_SUGGESTION_RE = re.compile(r"<!--WORD_SUGGE\w*:(.*?)-->", re.DOTALL)
+_WORD_RE = re.compile(r"<!--WORD:(.*?)-->", re.IGNORECASE | re.DOTALL)
 
 
 class StreamCollector:
-    """Wraps a token generator: yields display-safe tokens (WORD_SUGGESTION markers
+    """Wraps a token generator: yields display-safe tokens (WORD markers
     filtered out) while accumulating the full raw text in .full_text."""
 
     def __init__(self, token_gen: Iterator[str]):
@@ -38,7 +38,7 @@ class StreamCollector:
                     break  # incomplete marker — wait for more tokens
                 chunk = buf[: end + 3]
                 buf = buf[end + 3 :]
-                if not _WORD_SUGGESTION_RE.search(chunk):
+                if not _WORD_RE.search(chunk):
                     yield chunk
         if buf:
             m = buf.find("<!--")
@@ -60,7 +60,7 @@ def _is_valid_word(word: str) -> bool:
 def extract_word_suggestions(text: str) -> tuple[str, list[dict]]:
     suggestions = []
     seen: set[str] = set()
-    for match in _WORD_SUGGESTION_RE.finditer(text):
+    for match in _WORD_RE.finditer(text):
         try:
             entry = json.loads(match.group(1))
         except json.JSONDecodeError:
@@ -71,7 +71,7 @@ def extract_word_suggestions(text: str) -> tuple[str, list[dict]]:
         seen.add(word)
         entry["word"] = word
         suggestions.append(entry)
-    clean = _WORD_SUGGESTION_RE.sub("", text).strip()
+    clean = _WORD_RE.sub("", text).strip()
     return clean, suggestions
 
 

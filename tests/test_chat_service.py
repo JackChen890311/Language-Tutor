@@ -13,7 +13,7 @@ def _make_services(tmp_store, mock_llm):
 
 
 def test_extract_word_suggestions_found():
-    text = 'Hello <!--WORD_SUGGESTION:{"word": "食べる", "reading": "たべる"}--> world'
+    text = 'Hello <!--WORD:{"word": "食べる", "reading": "たべる"}--> world'
     clean, suggestions = extract_word_suggestions(text)
     assert len(suggestions) == 1
     assert suggestions[0]["word"] == "食べる"
@@ -26,20 +26,35 @@ def test_extract_word_suggestions_none():
     assert clean == "No suggestions here"
 
 
-def test_extract_word_suggestions_tolerates_misspelled_marker():
-    text = 'コーラ<!--WORD_SUGGETION:{"word": "コーラ", "reading": "こーら"}--> (こーら)'
+def test_extract_word_suggestions_case_insensitive():
+    text = 'コーラ<!--word:{"word": "コーラ", "reading": "こーら"}--> (こーら)'
     clean, suggestions = extract_word_suggestions(text)
     assert len(suggestions) == 1
     assert suggestions[0]["word"] == "コーラ"
     assert "<!--" not in clean
 
 
-def test_stream_collector_hides_misspelled_marker_from_live_output():
-    text = 'コーラ<!--WORD_SUGGETION:{"word": "コーラ", "reading": "こーら"}--> (こーら)'
+def test_extract_word_suggestions_mixed_case():
+    text = 'Hello <!--Word:{"word": "hello", "reading": "hello"}--> world'
+    clean, suggestions = extract_word_suggestions(text)
+    assert len(suggestions) == 1
+    assert suggestions[0]["word"] == "hello"
+    assert "<!--" not in clean
+
+
+def test_stream_collector_hides_word_marker_from_live_output():
+    text = 'コーラ<!--WORD:{"word": "コーラ", "reading": "こーら"}--> (こーら)'
     collector = StreamCollector(iter([text]))
     displayed = "".join(collector)
     assert "<!--" not in displayed
-    assert "WORD_SUGGE" not in displayed
+    assert "WORD:" not in displayed
+
+
+def test_stream_collector_hides_lowercase_word_marker():
+    text = 'コーラ<!--word:{"word": "コーラ", "reading": "こーら"}--> (こーら)'
+    collector = StreamCollector(iter([text]))
+    displayed = "".join(collector)
+    assert "<!--" not in displayed
 
 
 def test_send_message_returns_response(tmp_store, mock_llm):
@@ -64,7 +79,7 @@ def test_send_message_saves_messages(tmp_store, mock_llm):
 
 def test_send_message_extracts_word_suggestions(tmp_store, mock_llm):
     mock_llm.generate.return_value = (
-        'Try 食べる <!--WORD_SUGGESTION:{"word": "食べる", "reading": "たべる"}-->'
+        'Try 食べる <!--WORD:{"word": "食べる", "reading": "たべる"}-->'
     )
     svc, _ = _make_services(tmp_store, mock_llm)
     sid = tmp_store.create_chat_session("ja", "Test")
