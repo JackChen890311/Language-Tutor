@@ -35,12 +35,12 @@ class WordListService:
         entry = {
             "id": uuid.uuid4().hex[:8],
             "word": word,
-            "reading": reading,
             "source": source,
             "added_date": date.today().isoformat(),
             "tags": tags or [],
             "review_stats": {"last_reviewed": None, "correct": 0, "incorrect": 0},
             **enrichment,
+            "reading": reading or enrichment.get("reading") or "",
         }
         words.append(entry)
         self._store.save_wordlist(lang, words)

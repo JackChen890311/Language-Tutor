@@ -15,6 +15,7 @@ def _make_svc(tmp_store, mock_llm):
 def _mock_enrichment():
     return json.dumps(
         {
+            "reading": "たべる",
             "definition": "to eat",
             "part_of_speech": "動詞",
             "formality": "casual",
@@ -99,3 +100,17 @@ def test_has_stale_words_false_after_review(tmp_store, mock_llm):
     word = svc.add_word("ja", "zh-TW", "食べる", source="chat")
     svc.update_review_stats("ja", word["id"], correct=True)
     assert svc.has_stale_words("ja") is False
+
+
+def test_add_word_auto_reading_from_enrichment(tmp_store, mock_llm):
+    mock_llm.generate.return_value = _mock_enrichment()
+    svc = _make_svc(tmp_store, mock_llm)
+    word = svc.add_word("ja", "zh-TW", "食べる", source="manual")
+    assert word["reading"] == "たべる"
+
+
+def test_add_word_user_reading_takes_priority(tmp_store, mock_llm):
+    mock_llm.generate.return_value = _mock_enrichment()
+    svc = _make_svc(tmp_store, mock_llm)
+    word = svc.add_word("ja", "zh-TW", "食べる", reading="タベル", source="manual")
+    assert word["reading"] == "タベル"
