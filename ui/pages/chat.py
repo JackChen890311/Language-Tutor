@@ -1,7 +1,12 @@
 import tempfile
 import streamlit as st
 from ui.state import get
-from ui.components.word_chip import render_word_chips, add_word_suggestions, get_word_suggestions
+from ui.components.word_chip import (
+    render_word_chips,
+    add_word_suggestions,
+    clear_word_suggestions,
+    get_word_suggestions,
+)
 from ui.components.audio_controls import render_message_with_tts, render_stt_input
 from ui.components.stream_display import stream_with_thinking
 
@@ -22,6 +27,7 @@ def render() -> None:
             name = "新對話"
             st.session_state.active_session = store.create_chat_session(target_lang, name)
             st.session_state.pop("renaming_session", None)
+            clear_word_suggestions()
             st.rerun()
 
         for s in reversed(sessions):

@@ -1,3 +1,4 @@
+from ui.components import word_chip
 from ui.components.word_chip import merge_word_suggestions
 
 
@@ -38,3 +39,18 @@ def test_merge_caps_at_limit():
     assert len(result) == 10
     assert result[0] == {"word": "new_word"}
     assert result[-1] == {"word": "word8"}
+
+
+def test_clear_word_suggestions_empties_shared_list(monkeypatch):
+    fake_state: dict = {"word_suggestions": [{"word": "食べる"}]}
+    monkeypatch.setattr(word_chip.st, "session_state", fake_state)
+    word_chip.clear_word_suggestions()
+    assert fake_state["word_suggestions"] == []
+    assert word_chip.get_word_suggestions() == []
+
+
+def test_clear_word_suggestions_when_already_empty(monkeypatch):
+    fake_state: dict = {}
+    monkeypatch.setattr(word_chip.st, "session_state", fake_state)
+    word_chip.clear_word_suggestions()
+    assert word_chip.get_word_suggestions() == []
