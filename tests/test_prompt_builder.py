@@ -129,6 +129,52 @@ def test_get_difficulty_levels_falls_back_to_cefr():
     assert framework["levels"] == ["A1", "A2", "B1", "B2", "C1", "C2"]
 
 
+def test_chat_prompt_always_requests_word_suggestions():
+    pb = PromptBuilder()
+    prompt = pb.chat_system_prompt(native_lang="zh-TW", target_lang="ja")
+    assert "ALWAYS suggest vocabulary in every reply" in prompt
+    assert "every turn" in prompt
+    assert "at least one word marker" in prompt
+    assert "1-10" in prompt
+    assert "<!--WORD:" in prompt
+
+
+def test_lesson_prompt_always_requests_word_suggestions():
+    pb = PromptBuilder()
+    prompt = pb.lesson_system_prompt(
+        native_lang="zh-TW",
+        target_lang="ja",
+        topic="food",
+        phase="structured",
+        difficulty="N3",
+    )
+    assert "ALWAYS suggest vocabulary in every reply" in prompt
+    assert "every turn" in prompt
+    assert "at least one word marker" in prompt
+    assert "1-10" in prompt
+    assert "<!--WORD:" in prompt
+
+
+def test_chat_prompt_word_suggestions_are_single_words():
+    pb = PromptBuilder()
+    prompt = pb.chat_system_prompt(native_lang="en", target_lang="es")
+    assert "never a phrase" in prompt
+    assert "same word twice" in prompt
+
+
+def test_lesson_prompt_word_suggestions_are_single_words():
+    pb = PromptBuilder()
+    prompt = pb.lesson_system_prompt(
+        native_lang="en",
+        target_lang="es",
+        topic="food",
+        phase="conversation",
+        difficulty="B1",
+    )
+    assert "never a phrase" in prompt
+    assert "same word twice" in prompt
+
+
 def test_chat_prompt_includes_speak_tag_instruction():
     pb = PromptBuilder()
     prompt = pb.chat_system_prompt(native_lang="zh-TW", target_lang="ja")
