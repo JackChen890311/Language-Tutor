@@ -636,6 +636,45 @@ div[class*="st-key-ltcardhover_"]:hover {
 }
 [data-testid="stBottom"] { background: linear-gradient(transparent, var(--lt-bg) 40%); }
 
+/* floating suggestion toggle, aligned with the pinned chat input */
+/* The bottom input is min(63.75rem, main width - 10rem). Reserve 3.5rem for the
+   44px button and its gap so it sits just outside the input's right edge. */
+.stApp { --lt-sidebar-w: 0px; }
+.stApp:has([data-testid="stSidebar"][aria-expanded="true"]) { --lt-sidebar-w: 18.75rem; }
+div[class*="st-key-chat_toggle"] {
+    --lt-main-w: calc(100vw - var(--lt-sidebar-w));
+    --lt-chat-input-w: min(63.75rem, calc(var(--lt-main-w) - 10rem));
+    position: fixed;
+    right: max(0.5rem, calc((var(--lt-main-w) - var(--lt-chat-input-w)) / 2 - 3.5rem));
+    bottom: 4.05rem;
+    z-index: 1000;
+    width: auto;
+}
+div[class*="st-key-chat_toggle"] button {
+    width: 2.75rem;
+    height: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0;
+    border-radius: 999px;
+    font-size: 1.1rem;
+    line-height: 1;
+    box-shadow: var(--lt-shadow-hover);
+}
+div[class*="st-key-chat_toggle"] button[data-testid="stBaseButton-tertiary"] {
+    background: var(--lt-surface);
+    border: 1px solid var(--lt-border);
+}
+div[class*="st-key-chat_toggle"] button[data-testid="stBaseButton-tertiary"]:hover {
+    border-color: var(--lt-accent-border);
+    color: var(--lt-accent);
+}
+@media (max-width: 900px) {
+    div[class*="st-key-chat_toggle"] {
+        right: 0.75rem;
+        bottom: 7.6rem;
+    }
+}
+
 /* speakable sentence + its play button */
 div[class*="st-key-speak_"] {
     border-left: 3px solid var(--lt-accent);

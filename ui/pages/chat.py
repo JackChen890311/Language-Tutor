@@ -78,23 +78,12 @@ def render() -> None:
     )
 
     show_rail = rail_is_open()
-    title_col, rename_col, suggest_col = st.columns([6, 1, 2], vertical_alignment="center")
+    title_col, rename_col = st.columns([6, 1], vertical_alignment="center")
     with title_col:
         st.markdown(f"### {session_info['name'] if session_info else 'Chat'}")
     with rename_col:
         if st.button("✏️", key=f"rename_{active_session}", help="Rename chat", type="tertiary"):
             st.session_state.renaming_session = active_session
-            st.rerun()
-    with suggest_col:
-        suggestions = get_word_suggestions()
-        label = f"💡 Suggestions · {len(suggestions)}" if suggestions else "💡 Suggestions"
-        if st.button(
-            label,
-            key="toggle_suggestions",
-            use_container_width=True,
-            type="primary" if show_rail else "tertiary",
-        ):
-            set_rail_open(not show_rail)
             st.rerun()
 
     if st.session_state.get("renaming_session") == active_session:
@@ -166,6 +155,22 @@ def render() -> None:
                 )
 
     stt_text = render_stt_input(key=active_session)
+    suggestions = get_word_suggestions()
+    suggestion_count = f" ({len(suggestions)})" if suggestions else ""
+    with st.container(key="chat_toggle"):
+        if st.button(
+            "💡",
+            key="toggle_suggestions",
+            help=(
+                f"Hide word suggestions{suggestion_count}"
+                if show_rail
+                else f"Show word suggestions{suggestion_count}"
+            ),
+            type="primary" if show_rail else "tertiary",
+        ):
+            set_rail_open(not show_rail)
+            st.rerun()
+
     user_input = st.chat_input("Type a message…")
     final_input = stt_text or user_input
 
