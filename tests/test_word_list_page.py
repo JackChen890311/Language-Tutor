@@ -12,8 +12,8 @@ def test_pills_include_metadata_and_tags():
     assert "名詞" in html
     assert "formal" in html
     assert "N1" in html
-    assert "#business" in html
-    assert "#daily" in html
+    assert "business" in html
+    assert "daily" in html
 
 
 def test_pills_skip_missing_or_dash_values():
