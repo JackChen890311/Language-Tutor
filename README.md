@@ -12,7 +12,7 @@ A local-first AI language tutor that runs entirely on Apple Silicon. No cloud, n
 - **AI chat** — real-time streaming conversation with word suggestions and correction
 - **Level test** — auto-generated multiple-choice quiz that maps your score to JLPT / HSK / TOPIK / CEFR
 - **Word list** — one-click save of suggested words with full AI enrichment (translation, definitions, examples, conjugations, pitch accent, etc.)
-- **Light & dark themes** — a warm amber design system that follows your system appearance
+- **Light & dark themes** — a warm amber design system that follows your system appearance, with an instant switch under the ⋮ menu
 - **Rolling memory** — conversations summarize automatically as they grow, keeping context within token limits
 - **TTS playback** — hear any response or word pronounced (optional); target-language sentences are auto-tagged and each gets its own autoplaying 🔊 button
 - **Voice input** — speak instead of type with Whisper STT (optional)

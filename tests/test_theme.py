@@ -1,5 +1,5 @@
 from ui.labels import language_flag, language_name, language_pair_label
-from ui.theme import activity_days, greeting_for_hour
+from ui.theme import _token_css, activity_days, greeting_for_hour
 
 
 def test_greeting_morning():
@@ -65,3 +65,19 @@ def test_language_name_and_flag():
     assert language_name("xx") == "xx"
     assert language_flag("ja") == "🇯🇵"
     assert language_pair_label("zh-TW", "ja") == "🇹🇼 → 🇯🇵"
+
+
+def test_tokens_switch_with_color_scheme_without_rerun():
+    css = _token_css()
+    assert css.startswith(".stApp {")
+    # Every token carries both palettes so a client-side theme switch is instant.
+    assert css.count("light-dark(") == css.count("--lt-")
+    assert "--lt-bg: light-dark(#FBFAF8, #141310);" in css
+    assert "--lt-text: light-dark(#1F1B16, #F2EDE6);" in css
+    assert "--lt-accent: light-dark(#A85E12, #E8A44C);" in css
+
+
+def test_shadow_tokens_are_colours_not_full_shadows():
+    css = _token_css()
+    assert "--lt-shadow: " not in css
+    assert "--lt-shadow-color: light-dark(rgba(31, 27, 22, 0.06), rgba(0, 0, 0, 0.40));" in css

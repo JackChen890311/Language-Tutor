@@ -3,10 +3,10 @@
 Everything visual is centralised here so that pages only describe *what* to
 show, never *how* it looks. :func:`inject` is called once from ``ui/app.py``.
 
-Colours are emitted as CSS custom properties for the *active* Streamlit theme
-(``st.context.theme.type``), so custom markup follows the built-in widgets in
-both light and dark mode. Streamlit's own widgets are themed through
-``.streamlit/config.toml``.
+Every colour token is emitted as a ``light-dark()`` pair, so the custom markup
+follows Streamlit's active theme instantly — including when the user switches
+theme from the app menu, which does not trigger a rerun. Streamlit's own
+widgets are themed through ``.streamlit/config.toml``.
 """
 
 from __future__ import annotations
@@ -53,8 +53,8 @@ LIGHT = Palette(
     accent_border="rgba(168, 94, 18, 0.30)",
     on_accent="#FFFFFF",
     on_danger="#FFFFFF",
-    shadow="0 1px 2px rgba(31, 27, 22, 0.05)",
-    shadow_hover="0 12px 28px rgba(31, 27, 22, 0.10)",
+    shadow="rgba(31, 27, 22, 0.06)",
+    shadow_hover="rgba(31, 27, 22, 0.14)",
     success="#2E7D4F",
     success_soft="rgba(46, 125, 79, 0.12)",
     danger="#B3261E",
@@ -75,8 +75,8 @@ DARK = Palette(
     accent_border="rgba(232, 164, 76, 0.32)",
     on_accent="#201608",
     on_danger="#201608",
-    shadow="0 1px 2px rgba(0, 0, 0, 0.35)",
-    shadow_hover="0 14px 32px rgba(0, 0, 0, 0.45)",
+    shadow="rgba(0, 0, 0, 0.40)",
+    shadow_hover="rgba(0, 0, 0, 0.55)",
     success="#7BD8A0",
     success_soft="rgba(123, 216, 160, 0.14)",
     danger="#FF8A80",
@@ -85,44 +85,36 @@ DARK = Palette(
 )
 
 
-def is_dark() -> bool:
-    """Whether Streamlit is currently rendering the dark theme."""
-    try:
-        return st.context.theme.type == "dark"
-    except Exception:  # no context during tests / first paint
-        return False
-
-
-def palette() -> Palette:
-    return DARK if is_dark() else LIGHT
-
-
 def esc(value: object) -> str:
     """HTML-escape dynamic text before dropping it into custom markup."""
     return html.escape(str(value))
 
 
-def _token_css(p: Palette) -> str:
+def _pair(light: str, dark: str) -> str:
+    return f"light-dark({light}, {dark})"
+
+
+def _token_css() -> str:
     tokens = {
-        "--lt-bg": p.bg,
-        "--lt-surface": p.surface,
-        "--lt-surface-2": p.surface_alt,
-        "--lt-border": p.border,
-        "--lt-text": p.text,
-        "--lt-muted": p.muted,
-        "--lt-accent": p.accent,
-        "--lt-accent-hover": p.accent_hover,
-        "--lt-accent-soft": p.accent_soft,
-        "--lt-accent-border": p.accent_border,
-        "--lt-on-accent": p.on_accent,
-        "--lt-on-danger": p.on_danger,
-        "--lt-shadow": p.shadow,
-        "--lt-shadow-hover": p.shadow_hover,
-        "--lt-success": p.success,
-        "--lt-success-soft": p.success_soft,
-        "--lt-danger": p.danger,
-        "--lt-danger-soft": p.danger_soft,
-        "--lt-ring-track": p.ring_track,
+        "--lt-bg": _pair(LIGHT.bg, DARK.bg),
+        "--lt-surface": _pair(LIGHT.surface, DARK.surface),
+        "--lt-surface-2": _pair(LIGHT.surface_alt, DARK.surface_alt),
+        "--lt-border": _pair(LIGHT.border, DARK.border),
+        "--lt-text": _pair(LIGHT.text, DARK.text),
+        "--lt-muted": _pair(LIGHT.muted, DARK.muted),
+        "--lt-accent": _pair(LIGHT.accent, DARK.accent),
+        "--lt-accent-hover": _pair(LIGHT.accent_hover, DARK.accent_hover),
+        "--lt-accent-soft": _pair(LIGHT.accent_soft, DARK.accent_soft),
+        "--lt-accent-border": _pair(LIGHT.accent_border, DARK.accent_border),
+        "--lt-on-accent": _pair(LIGHT.on_accent, DARK.on_accent),
+        "--lt-on-danger": _pair(LIGHT.on_danger, DARK.on_danger),
+        "--lt-shadow-color": _pair(LIGHT.shadow, DARK.shadow),
+        "--lt-shadow-hover-color": _pair(LIGHT.shadow_hover, DARK.shadow_hover),
+        "--lt-success": _pair(LIGHT.success, DARK.success),
+        "--lt-success-soft": _pair(LIGHT.success_soft, DARK.success_soft),
+        "--lt-danger": _pair(LIGHT.danger, DARK.danger),
+        "--lt-danger-soft": _pair(LIGHT.danger_soft, DARK.danger_soft),
+        "--lt-ring-track": _pair(LIGHT.ring_track, DARK.ring_track),
     }
     body = "\n".join(f"  {name}: {value};" for name, value in tokens.items())
     return f".stApp {{\n{body}\n}}\n"
@@ -133,9 +125,12 @@ _BASE_CSS = """
 .stApp { background: var(--lt-bg); color: var(--lt-text); }
 [data-testid="stHeader"] { background: transparent; }
 [data-testid="stToolbar"] { right: 0.6rem; }
-[data-testid="stAppDeployButton"], [data-testid="stStatusWidget"], #MainMenu, footer {
+[data-testid="stAppDeployButton"], [data-testid="stStatusWidget"], footer {
     display: none !important;
 }
+#MainMenu button { color: var(--lt-muted) !important; border-radius: 0.6rem; }
+#MainMenu button:hover { background: var(--lt-accent-soft) !important; color: var(--lt-accent) !important; }
+[data-testid="stMainMenu"] { display: block; }
 [data-testid="stMainBlockContainer"] {
     max-width: 1180px;
     padding-top: 2.4rem;
@@ -324,20 +319,20 @@ div[class*="st-key-ltcard_"], div[class*="st-key-ltcardhover_"] {
     border: 1px solid var(--lt-border);
     border-radius: 1rem;
     padding: 1.05rem 1.15rem;
-    box-shadow: var(--lt-shadow);
+    box-shadow: 0 1px 2px var(--lt-shadow-color);
     transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
 div[class*="st-key-ltcardhover_"]:hover {
     transform: translateY(-2px);
     border-color: var(--lt-accent-border);
-    box-shadow: var(--lt-shadow-hover);
+    box-shadow: 0 12px 28px var(--lt-shadow-hover-color);
 }
 .lt-card {
     background: var(--lt-surface);
     border: 1px solid var(--lt-border);
     border-radius: 1rem;
     padding: 1.05rem 1.15rem;
-    box-shadow: var(--lt-shadow);
+    box-shadow: 0 1px 2px var(--lt-shadow-color);
 }
 
 /* ---------- page header ------------------------------------------------ */
@@ -398,7 +393,7 @@ div[class*="st-key-ltcardhover_"]:hover {
     border: 1px solid var(--lt-border);
     border-radius: 1.25rem;
     padding: 1.6rem 1.75rem;
-    box-shadow: var(--lt-shadow);
+    box-shadow: 0 1px 2px var(--lt-shadow-color);
     animation: lt-fade 0.4s ease both;
 }
 .lt-hero::after {
@@ -458,13 +453,13 @@ div[class*="st-key-ltcardhover_"]:hover {
     border: 1px solid var(--lt-border);
     border-radius: 1rem;
     padding: 0.95rem 1rem;
-    box-shadow: var(--lt-shadow);
+    box-shadow: 0 1px 2px var(--lt-shadow-color);
     transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
 .lt-stat:hover {
     transform: translateY(-2px);
     border-color: var(--lt-accent-border);
-    box-shadow: var(--lt-shadow-hover);
+    box-shadow: 0 12px 28px var(--lt-shadow-hover-color);
 }
 .lt-stat-icon {
     display: grid;
@@ -613,7 +608,7 @@ div[class*="st-key-ltcardhover_"]:hover {
     border-radius: 1rem;
     padding: 0.85rem 1rem;
     margin-bottom: 0.35rem;
-    box-shadow: var(--lt-shadow);
+    box-shadow: 0 1px 2px var(--lt-shadow-color);
 }
 [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
     background: var(--lt-accent-soft);
@@ -632,7 +627,7 @@ div[class*="st-key-ltcardhover_"]:hover {
     border-radius: 1rem;
     border-color: var(--lt-border);
     background: var(--lt-surface);
-    box-shadow: var(--lt-shadow);
+    box-shadow: 0 1px 2px var(--lt-shadow-color);
 }
 [data-testid="stBottom"] { background: linear-gradient(transparent, var(--lt-bg) 40%); }
 
@@ -658,7 +653,7 @@ div[class*="st-key-chat_toggle"] button {
     border-radius: 999px;
     font-size: 1.1rem;
     line-height: 1;
-    box-shadow: var(--lt-shadow-hover);
+    box-shadow: 0 12px 28px var(--lt-shadow-hover-color);
 }
 div[class*="st-key-chat_toggle"] button[data-testid="stBaseButton-tertiary"] {
     background: var(--lt-surface);
@@ -786,7 +781,7 @@ div[class*="st-key-wchip_"] {
     border-radius: 1rem;
     padding: 0.7rem 0.75rem 0.5rem;
     margin-bottom: 0.5rem;
-    box-shadow: var(--lt-shadow);
+    box-shadow: 0 1px 2px var(--lt-shadow-color);
     transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease,
         box-shadow 0.16s ease;
 }
@@ -794,7 +789,7 @@ div[class*="st-key-wchip_"]:hover {
     transform: translateY(-1px);
     border-color: var(--lt-accent-border);
     background: var(--lt-accent-soft);
-    box-shadow: var(--lt-shadow-hover);
+    box-shadow: 0 12px 28px var(--lt-shadow-hover-color);
 }
 .lt-wchip-word {
     font-size: 1.12rem;
@@ -898,8 +893,7 @@ div[class*="st-key-wchip_"] button {
 
 def inject() -> None:
     """Install design tokens and global CSS. Call once, right after set_page_config."""
-    p = palette()
-    st.markdown(f"<style>{_token_css(p)}{_BASE_CSS}</style>", unsafe_allow_html=True)
+    st.markdown(f"<style>{_token_css()}{_BASE_CSS}</style>", unsafe_allow_html=True)
 
 
 # --------------------------------------------------------------------------

@@ -5,7 +5,7 @@ headless = false
 gatherUsageStats = false
 
 [client]
-toolbarMode = "minimal"
+toolbarMode = "viewer"
 showSidebarNavigation = false
 
 [theme]
