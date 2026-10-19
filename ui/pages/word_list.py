@@ -1,178 +1,274 @@
+import html
+
 import streamlit as st
-from ui.state import get
+
+from ui import theme
 from ui.components.audio_controls import autoplay_audio_html
+from ui.state import get
 
 
 def _has_kanji(text: str) -> bool:
     return any("\u4e00" <= ch <= "\u9fff" or "\u3400" <= ch <= "\u4dbf" for ch in text)
 
 
-def _format_word_display(word: str, reading: str = "") -> str:
-    if _has_kanji(word) and reading:
-        return f"{word}({reading})"
-    return word
+def _esc(text: object) -> str:
+    return html.escape(str(text))
 
 
 def render() -> None:
-    st.title("📚 Word List")
-
     language_svc = get("language_svc")
     native_lang, target_lang = language_svc.get_language_pair()
     word_svc = get("word_svc")
 
-    tab_browse, tab_add, tab_review = st.tabs(["Browse", "Add Word", "Review"])
+    theme.page_header(
+        "📚",
+        "Word List",
+        "Everything you saved, enriched with readings, examples and review stats.",
+    )
 
-    with tab_browse:
+    section = st.segmented_control(
+        "Section",
+        ["Browse", "Add Word", "Review"],
+        default="Browse",
+        key="wordlist_section",
+        label_visibility="collapsed",
+    )
+    if section is None:
+        section = "Browse"
+
+    if section == "Browse":
         _render_browse(word_svc, target_lang, native_lang)
-
-    with tab_add:
+    elif section == "Add Word":
         _render_add(word_svc, target_lang, native_lang)
-
-    with tab_review:
+    else:
         _render_review(word_svc, target_lang, native_lang)
 
 
-def _render_browse(word_svc, target_lang, native_lang) -> None:
+def _render_browse(word_svc, target_lang: str, native_lang: str) -> None:
     words = word_svc.get_all_words(target_lang)
     if not words:
-        st.info("No words saved yet. Start chatting or take a lesson!")
+        theme.empty_state(
+            "🌱",
+            "No words saved yet",
+            "Save suggestions from Chat or Lesson, or add a word manually.",
+        )
         return
 
-    col1, col2 = st.columns(2)
-    with col1:
-        query = st.text_input("🔍 Search", placeholder="Search words...")
-    with col2:
+    with st.container(key="ltcard_filters"):
+        search_col, _ = st.columns([2, 1])
+        with search_col:
+            query = st.text_input("Search", placeholder="🔍  Search words…")
         all_tags = sorted({tag for w in words for tag in w.get("tags", [])})
-        tag_filter = st.selectbox("Filter by tag", ["All"] + all_tags)
+        selected_tag = "All"
+        if all_tags:
+            picked = st.pills(
+                "Tags",
+                ["All"] + all_tags,
+                default="All",
+                key="wordlist_tag",
+                label_visibility="collapsed",
+            )
+            selected_tag = picked or "All"
 
     if query:
         words = word_svc.search(target_lang, query)
-    if tag_filter != "All":
-        words = [w for w in words if tag_filter in w.get("tags", [])]
+    if selected_tag != "All":
+        words = [w for w in words if selected_tag in w.get("tags", [])]
+
+    if not words:
+        theme.empty_state("🔍", "No matches", "Try a different search term or tag.")
+        return
+
+    theme.section_header(
+        "Your words",
+        caption=f"{len(words)} word{'s' if len(words) != 1 else ''}",
+        icon="📖",
+    )
 
     mm = get("mm")
     tts_available = mm.is_model_available("tts")
-
-    for word in words:
-        translation = word.get("translation", "")
-        display = _format_word_display(word["word"], word.get("reading", ""))
-        header = f"**{display}**"
-        if translation:
-            header += f" — {translation}"
-        with st.expander(header):
-            # Word + audio button row
-            word_col, audio_col = st.columns([8, 1])
-            with word_col:
-                st.markdown(f"### {display}")
-                if translation:
-                    st.markdown(f"**{translation}**")
-            with audio_col:
-                if tts_available and st.button("🔊", key=f"tts_{word['id']}", help="Play audio"):
-                    with st.spinner(""):
-                        tts = mm.get_tts()
-                        audio_bytes = tts.synthesize(word["word"], lang=target_lang)
-                    st.html(autoplay_audio_html(audio_bytes))
-
-            st.divider()
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.write(f"**Definition:** {word.get('definition', '-')}")
-                st.write(f"**Part of speech:** {word.get('part_of_speech', '-')}")
-                st.write(f"**Formality:** {word.get('formality', '-')}")
-                st.write(f"**Level:** {word.get('proficiency_level', '-')}")
-                if word.get("synonyms"):
-                    st.write(f"**Synonyms:** {', '.join(word['synonyms'])}")
-                if word.get("collocations"):
-                    st.write(f"**Collocations:** {', '.join(word['collocations'])}")
-                if word.get("examples"):
-                    st.write("**Examples:**")
-                    for ex in word["examples"]:
-                        st.write(f"  • {ex}")
-                if word.get("related_words"):
-                    st.write(f"**Related:** {', '.join(word['related_words'])}")
-                conj = word.get("conjugations")
-                if conj:
-                    st.write(
-                        "**Conjugations:** " + " · ".join(f"{k}: {v}" for k, v in conj.items())
-                    )
-                ls = word.get("language_specific", {})
-                if ls and any(v for v in ls.values() if v):
-                    extras = {k: v for k, v in ls.items() if v}
-                    st.write(
-                        "**Language info:** " + " · ".join(f"{k}: {v}" for k, v in extras.items())
-                    )
-            with col2:
-                stats = word.get("review_stats", {})
-                # Ensure we have proper defaults for all fields
-                last_reviewed = stats.get("last_reviewed")
-                correct_count = stats.get("correct", 0)
-                incorrect_count = stats.get("incorrect", 0)
-                is_reviewed = last_reviewed is not None
-
-                st.caption(
-                    f"✅ {correct_count} / ❌ {incorrect_count}\nLast: {last_reviewed or 'never'}"
-                )
-
-                # Add manual review status toggle
-                if is_reviewed:
-                    if st.button("Mark as Not Reviewed", key=f"unreview_{word['id']}"):
-                        word_svc.set_review_status(target_lang, word["id"], False)
-                        st.rerun()
-                else:
-                    if st.button("Mark as Reviewed", key=f"review_{word['id']}"):
-                        word_svc.set_review_status(target_lang, word["id"], True)
-                        st.rerun()
-
-                st.divider()
-                confirm_key = f"confirm_delete_{word['id']}"
-                if st.session_state.get(confirm_key):
-                    st.caption(f"Delete **{word['word']}**?")
-                    dcol1, dcol2 = st.columns(2)
-                    with dcol1:
-                        if st.button("Yes, delete", key=f"yes_del_{word['id']}"):
-                            word_svc.delete_word(target_lang, word["id"])
-                            del st.session_state[confirm_key]
-                            st.rerun()
-                    with dcol2:
-                        if st.button("Cancel", key=f"no_del_{word['id']}"):
-                            del st.session_state[confirm_key]
-                            st.rerun()
-                else:
-                    if st.button("🗑️ Delete", key=f"del_{word['id']}"):
-                        st.session_state[confirm_key] = True
-                        st.rerun()
+    columns = st.columns(3)
+    for i, word in enumerate(words):
+        with columns[i % 3]:
+            _render_word_card(word, word_svc, target_lang, tts_available, mm)
 
 
-def _render_add(word_svc, target_lang, native_lang) -> None:
-    st.subheader("Add a word manually")
-    word_input = st.text_input("Word")
-    reading_input = st.text_input("Reading / pronunciation (optional)")
-    tags_input = st.text_input("Tags (comma-separated, optional)")
+def _render_word_card(word, word_svc, target_lang, tts_available, mm) -> None:
+    word_id = word["id"]
+    reading = word.get("reading", "")
+    reading_html = (
+        f'<span class="lt-reading">{_esc(reading)}</span>'
+        if _has_kanji(word["word"]) and reading
+        else ""
+    )
+    translation = word.get("translation", "")
+    translation_html = (
+        f'<div class="lt-translation">{_esc(translation)}</div>' if translation else ""
+    )
 
-    if st.button("➕ Add & Enrich") and word_input:
-        tags = [t.strip() for t in tags_input.split(",") if t.strip()]
-        with st.spinner(f"Enriching '{word_input}'..."):
-            entry = word_svc.add_word(
-                target_lang,
-                native_lang,
-                word_input,
-                reading=reading_input,
-                source="manual",
-                tags=tags,
+    with st.container(key=f"ltcardhover_word_{word_id}"):
+        head_col, audio_col = st.columns([6, 1], vertical_alignment="center")
+        with head_col:
+            st.markdown(
+                f'<div class="lt-word">{_esc(word["word"])}{reading_html}</div>{translation_html}',
+                unsafe_allow_html=True,
             )
-        st.success(f"Added: **{entry['word']}** — {entry.get('definition', '')}")
-        st.rerun()
+        with audio_col:
+            if tts_available and st.button(
+                "🔊", key=f"tts_{word_id}", help="Play audio", type="tertiary"
+            ):
+                with st.spinner(""):
+                    tts = mm.get_tts()
+                    audio_bytes = tts.synthesize(word["word"], lang=target_lang)
+                st.html(autoplay_audio_html(audio_bytes))
+
+        pills = _pills_html(word)
+        if pills:
+            st.html(pills)
+
+        definition = word.get("definition", "")
+        if definition:
+            st.markdown(f'<div class="lt-muted">{_esc(definition)}</div>', unsafe_allow_html=True)
+
+        examples = word.get("examples") or []
+        if examples:
+            st.markdown(f'<div class="lt-muted">“{_esc(examples[0])}”</div>',
+                        unsafe_allow_html=True)
+
+        _render_details(word, examples[1:])
+
+        st.markdown('<div class="lt-divider"></div>', unsafe_allow_html=True)
+        _render_card_actions(word, word_svc, target_lang)
 
 
-def _render_review(word_svc, target_lang, native_lang) -> None:
+def _pills_html(word: dict) -> str:
+    labels = [
+        word.get("part_of_speech"),
+        word.get("formality"),
+        word.get("proficiency_level"),
+    ]
+    pills = [theme.tag(label) for label in labels if label and label != "-"]
+    pills += [theme.tag(tag, accent=True) for tag in word.get("tags", [])]
+    return f'<div class="lt-tagrow">{"".join(pills)}</div>' if pills else ""
+
+
+def _render_details(word: dict, extra_examples: list[str]) -> None:
+    sections = []
+    if word.get("synonyms"):
+        sections.append(("Synonyms", ", ".join(word["synonyms"])))
+    if word.get("collocations"):
+        sections.append(("Collocations", ", ".join(word["collocations"])))
+    if word.get("related_words"):
+        sections.append(("Related", ", ".join(word["related_words"])))
+    conj = word.get("conjugations")
+    if conj:
+        sections.append(("Conjugations", " · ".join(f"{k}: {v}" for k, v in conj.items())))
+    ls = word.get("language_specific", {})
+    extras = {k: v for k, v in ls.items() if v} if ls else {}
+    if extras:
+        sections.append(("Language info", " · ".join(f"{k}: {v}" for k, v in extras.items())))
+    if word.get("grammar_notes"):
+        sections.append(("Grammar", word["grammar_notes"]))
+
+    if not sections and not extra_examples:
+        return
+
+    with st.expander("More details"):
+        for label, value in sections:
+            st.markdown(f"**{label}:** {value}")
+        if extra_examples:
+            st.markdown("**Examples:**")
+            for example in extra_examples:
+                st.markdown(f"- {example}")
+
+
+def _render_card_actions(word, word_svc, target_lang) -> None:
+    word_id = word["id"]
+    stats = word.get("review_stats", {})
+    last_reviewed = stats.get("last_reviewed")
+    is_reviewed = last_reviewed is not None
+
+    st.caption(
+        f"✅ {stats.get('correct', 0)} · ❌ {stats.get('incorrect', 0)} · "
+        f"Last: {last_reviewed or 'never'}"
+    )
+
+    confirm_key = f"confirm_delete_{word_id}"
+    if st.session_state.get(confirm_key):
+        st.caption(f"Delete **{word['word']}**?")
+        dcol1, dcol2 = st.columns(2)
+        with dcol1:
+            if st.button("Yes, delete", key=f"yes_del_{word_id}", use_container_width=True,
+                         type="primary"):
+                word_svc.delete_word(target_lang, word_id)
+                del st.session_state[confirm_key]
+                st.rerun()
+        with dcol2:
+            if st.button("Cancel", key=f"no_del_{word_id}", use_container_width=True):
+                del st.session_state[confirm_key]
+                st.rerun()
+        return
+
+    action_col1, action_col2 = st.columns([1.7, 1])
+    with action_col1:
+        if is_reviewed:
+            if st.button("Mark not reviewed", key=f"unreview_{word_id}",
+                         use_container_width=True):
+                word_svc.set_review_status(target_lang, word_id, False)
+                st.rerun()
+        else:
+            if st.button("Mark reviewed", key=f"review_{word_id}", use_container_width=True):
+                word_svc.set_review_status(target_lang, word_id, True)
+                st.rerun()
+    with action_col2:
+        if st.button("🗑️", key=f"del_{word_id}", use_container_width=True, help="Delete word"):
+            st.session_state[confirm_key] = True
+            st.rerun()
+
+
+def _render_add(word_svc, target_lang: str, native_lang: str) -> None:
+    with st.container(key="ltcard_add_word"):
+        theme.section_header("Add a word manually", icon="➕")
+        word_input = st.text_input("Word")
+        reading_input = st.text_input("Reading / pronunciation (optional)")
+        tags_input = st.text_input("Tags (comma-separated, optional)")
+
+        if st.button("➕  Add & enrich", type="primary", disabled=not word_input.strip()):
+            tags = [t.strip() for t in tags_input.split(",") if t.strip()]
+            with st.spinner(f"Enriching “{word_input}”…"):
+                entry = word_svc.add_word(
+                    target_lang,
+                    native_lang,
+                    word_input,
+                    reading=reading_input,
+                    source="manual",
+                    tags=tags,
+                )
+            st.success(f"Added: **{entry['word']}** — {entry.get('definition', '')}")
+            st.rerun()
+
+
+def _render_review(word_svc, target_lang: str, native_lang: str) -> None:
     stale = word_svc.get_stale_words(target_lang)
 
     if not stale:
-        st.success("✅ All words reviewed recently!")
+        theme.empty_state(
+            "✅",
+            "All caught up",
+            "Every saved word has been reviewed recently. Come back later!",
+        )
         return
 
-    st.info(f"**{len(stale)} words** due for review.")
-    mode = st.radio("Review mode", ["Flashcard", "Fill-in-the-blank", "Sentence construction"])
+    theme.section_header("Review session", caption=f"{len(stale)} words due", icon="🔁")
+    mode = st.pills(
+        "Review mode",
+        ["Flashcard", "Fill-in-the-blank", "Sentence construction"],
+        default="Flashcard",
+        key="review_mode",
+        label_visibility="collapsed",
+    )
+    if mode is None:
+        mode = "Flashcard"
 
     if "review_queue" not in st.session_state:
         st.session_state.review_queue = list(stale)
@@ -183,55 +279,83 @@ def _render_review(word_svc, target_lang, native_lang) -> None:
     idx = st.session_state.review_idx
 
     if idx >= len(queue):
-        st.success("🎉 Review session complete!")
-        del st.session_state.review_queue
-        del st.session_state.review_idx
-        del st.session_state.review_revealed
+        theme.empty_state("🎉", "Review session complete!", "Nice work — queue cleared.")
+        if st.button("Start another session", type="primary"):
+            for key in ("review_queue", "review_idx", "review_revealed"):
+                st.session_state.pop(key, None)
+            st.rerun()
         return
 
     word = queue[idx]
-    st.progress((idx) / len(queue), text=f"{idx}/{len(queue)}")
+    st.progress(idx / len(queue), text=f"{idx} / {len(queue)} reviewed")
 
     if mode == "Flashcard":
-        word_col, audio_col = st.columns([8, 1])
-        with word_col:
-            st.markdown(f"## {word['word']} {word.get('reading', '')}")
-        with audio_col:
-            mm = get("mm")
-            if mm.is_model_available("tts") and st.button("🔊", key=f"rev_tts_{word['id']}"):
-                with st.spinner(""):
-                    tts = mm.get_tts()
-                    audio_bytes = tts.synthesize(word["word"], lang=target_lang)
-                st.html(autoplay_audio_html(audio_bytes))
+        _render_flashcard(word, word_svc, target_lang)
+    elif mode == "Fill-in-the-blank":
+        _render_fill_blank(word, word_svc, target_lang, idx)
+    else:
+        _render_sentence(word, word_svc, target_lang, native_lang, idx)
+
+
+def _render_flashcard(word, word_svc, target_lang: str) -> None:
+    with st.container(key="ltcard_flashcard"):
+        reading = word.get("reading", "")
+        reading_html = (
+            f'<div class="lt-flash-reading">{_esc(reading)}</div>'
+            if _has_kanji(word["word"]) and reading
+            else ""
+        )
+        audio_col1, audio_col2, audio_col3 = st.columns([1, 2, 1])
+        with audio_col2:
+            st.html(
+                f'<div class="lt-flash"><div class="lt-flash-word">{_esc(word["word"])}</div>'
+                f"{reading_html}</div>"
+            )
+
+        mm = get("mm")
+        if mm.is_model_available("tts") and st.button(
+            "🔊  Hear it", key=f"rev_tts_{word['id']}"
+        ):
+            with st.spinner(""):
+                tts = mm.get_tts()
+                audio_bytes = tts.synthesize(word["word"], lang=target_lang)
+            st.html(autoplay_audio_html(audio_bytes))
+
         if st.session_state.review_revealed:
             if word.get("translation"):
-                st.markdown(f"### {word['translation']}")
-            st.write(f"**{word.get('definition', '')}**")
-            st.write(word.get("grammar_notes", ""))
+                st.html(
+                    f'<div class="lt-flash-translation">{_esc(word["translation"])}</div>'
+                )
+            st.markdown(f"**{word.get('definition', '')}**")
+            if word.get("grammar_notes"):
+                st.caption(word["grammar_notes"])
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("✅ Got it"):
+                if st.button("✅  Got it", use_container_width=True, type="primary"):
                     word_svc.update_review_stats(target_lang, word["id"], correct=True)
                     _next_review()
             with col2:
-                if st.button("❌ Missed"):
+                if st.button("❌  Missed", use_container_width=True):
                     word_svc.update_review_stats(target_lang, word["id"], correct=False)
                     _next_review()
         else:
-            if st.button("👁️ Reveal"):
+            if st.button("👁️  Reveal answer", use_container_width=True, type="primary"):
                 st.session_state.review_revealed = True
                 st.rerun()
 
-    elif mode == "Fill-in-the-blank":
+
+def _render_fill_blank(word, word_svc, target_lang: str, idx: int) -> None:
+    with st.container(key="ltcard_flashcard"):
         example = (word.get("examples") or [""])[0]
         blanked = (
             example.replace(word["word"], "______")
             if word["word"] in example
             else f"______ ({word.get('reading', '')})"
         )
-        st.write(f"Fill in the blank: **{blanked}**")
+        st.markdown(f"**Fill in the blank**")
+        st.markdown(f"### {blanked}")
         answer = st.text_input("Your answer:", key=f"fib_{word['id']}_{idx}")
-        if st.button("Check"):
+        if st.button("Check", type="primary", use_container_width=True):
             if word["word"] in answer:
                 st.success("✅ Correct!")
                 word_svc.update_review_stats(target_lang, word["id"], correct=True)
@@ -240,10 +364,13 @@ def _render_review(word_svc, target_lang, native_lang) -> None:
                 word_svc.update_review_stats(target_lang, word["id"], correct=False)
             _next_review()
 
-    elif mode == "Sentence construction":
-        st.write(f"Use **{word['word']}** ({word.get('definition', '')}) in a sentence:")
+
+def _render_sentence(word, word_svc, target_lang: str, native_lang: str, idx: int) -> None:
+    with st.container(key="ltcard_flashcard"):
+        st.markdown(f"**Use {word['word']} in a sentence**")
+        st.caption(word.get("definition", ""))
         user_sentence = st.text_area("Your sentence:", key=f"sc_{word['id']}_{idx}")
-        if st.button("Submit for feedback"):
+        if st.button("Submit for feedback", type="primary", use_container_width=True):
             chat_svc = get("chat_svc")
             language_svc = get("language_svc")
             native_lang_local, target_lang_local = language_svc.get_language_pair()
@@ -253,18 +380,20 @@ def _render_review(word_svc, target_lang, native_lang) -> None:
                 lang=target_lang,
                 session_id=tmp_session,
                 native_lang=native_lang_local,
-                user_text=f"Please evaluate this sentence using the word {word['word']}: {user_sentence}",
+                user_text=(
+                    f"Please evaluate this sentence using the word {word['word']}: {user_sentence}"
+                ),
                 image_path=None,
             )
             store.delete_chat_session(target_lang, tmp_session)
             st.write(result["response"])
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("✅ Mark correct"):
+                if st.button("✅ Mark correct", use_container_width=True):
                     word_svc.update_review_stats(target_lang, word["id"], correct=True)
                     _next_review()
             with col2:
-                if st.button("❌ Mark missed"):
+                if st.button("❌ Mark missed", use_container_width=True):
                     word_svc.update_review_stats(target_lang, word["id"], correct=False)
                     _next_review()
 
