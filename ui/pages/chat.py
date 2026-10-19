@@ -10,7 +10,10 @@ from ui.components.word_chip import (
     add_word_suggestions,
     clear_word_suggestions,
     get_word_suggestions,
-    render_word_chips,
+    rail_is_open,
+    render_word_rail,
+    reset_word_rail_preference,
+    set_rail_open,
 )
 from ui.state import get
 
@@ -22,6 +25,7 @@ def _render_sessions(store, target_lang: str, active_session: str | None) -> Non
         st.session_state.active_session = store.create_chat_session(target_lang, name)
         st.session_state.pop("renaming_session", None)
         clear_word_suggestions()
+        reset_word_rail_preference()
         st.rerun()
 
     with st.container(key="chat_sessions"):
@@ -43,19 +47,6 @@ def _render_sessions(store, target_lang: str, active_session: str | None) -> Non
                     if active_session == s["id"]:
                         st.session_state.pop("active_session", None)
                     st.rerun()
-
-
-def _render_suggestions(target_lang: str, native_lang: str) -> None:
-    suggestions = get_word_suggestions()
-    if not suggestions:
-        return
-    theme.section_header(
-        "Words from this chat", caption=f"{len(suggestions)} saved suggestions", icon="💡"
-    )
-    columns = st.columns(4)
-    for i, suggestion in enumerate(suggestions):
-        with columns[i % 4]:
-            render_word_chips([suggestion], lang=target_lang, native_lang=native_lang)
 
 
 def render() -> None:
@@ -86,6 +77,7 @@ def render() -> None:
         (s for s in store.list_chat_sessions(target_lang) if s["id"] == active_session), None
     )
 
+    show_rail = rail_is_open()
     title_col, rename_col, suggest_col = st.columns([6, 1, 2], vertical_alignment="center")
     with title_col:
         st.markdown(f"### {session_info['name'] if session_info else 'Chat'}")
@@ -96,14 +88,13 @@ def render() -> None:
     with suggest_col:
         suggestions = get_word_suggestions()
         label = f"💡 Suggestions · {len(suggestions)}" if suggestions else "💡 Suggestions"
-        show = st.session_state.get("show_word_suggestions", False)
         if st.button(
             label,
             key="toggle_suggestions",
             use_container_width=True,
-            type="primary" if show else "tertiary",
+            type="primary" if show_rail else "tertiary",
         ):
-            st.session_state.show_word_suggestions = not show
+            set_rail_open(not show_rail)
             st.rerun()
 
     if st.session_state.get("renaming_session") == active_session:
@@ -127,41 +118,52 @@ def render() -> None:
                     st.session_state.pop("renaming_session", None)
                     st.rerun()
 
-    if st.session_state.get("show_word_suggestions"):
-        if get_word_suggestions():
-            _render_suggestions(target_lang, native_lang)
-        else:
-            st.caption("Words worth learning will appear here as you chat.")
+    if show_rail:
+        chat_col, rail_col = st.columns([3, 1], gap="large")
+    else:
+        chat_col, rail_col = st.container(), None
 
-    theme.section_header("Conversation", icon="🗨️")
+    with chat_col:
+        theme.section_header("Conversation", icon="🗨️")
 
-    messages = chat_svc.get_history(target_lang, active_session)
-    if not messages:
-        theme.empty_state(
-            "🌱",
-            "Say hello",
-            "Try a simple greeting, ask about the weather, or describe your day.",
+        messages = chat_svc.get_history(target_lang, active_session)
+        if not messages:
+            theme.empty_state(
+                "🌱",
+                "Say hello",
+                "Try a simple greeting, ask about the weather, or describe your day.",
+            )
+
+        for i, msg in enumerate(messages):
+            with st.chat_message(msg["role"]):
+                if msg["role"] == "assistant":
+                    render_message_with_tts(msg["content"], lang=target_lang, key=f"hist{i}")
+                else:
+                    st.write(msg["content"])
+
+        uploaded_image = st.file_uploader(
+            "📷 Attach an image (optional)",
+            type=["jpg", "jpeg", "png"],
+            key=f"img_{active_session}",
+            label_visibility="collapsed",
         )
+        image_path = None
+        if uploaded_image:
+            suffix = os.path.splitext(uploaded_image.name)[1]
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
+                f.write(uploaded_image.getvalue())
+                image_path = f.name
 
-    for i, msg in enumerate(messages):
-        with st.chat_message(msg["role"]):
-            if msg["role"] == "assistant":
-                render_message_with_tts(msg["content"], lang=target_lang, key=f"hist{i}")
-            else:
-                st.write(msg["content"])
-
-    uploaded_image = st.file_uploader(
-        "📷 Attach an image (optional)",
-        type=["jpg", "jpeg", "png"],
-        key=f"img_{active_session}",
-        label_visibility="collapsed",
-    )
-    image_path = None
-    if uploaded_image:
-        suffix = os.path.splitext(uploaded_image.name)[1]
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
-            f.write(uploaded_image.getvalue())
-            image_path = f.name
+    if rail_col is not None:
+        with rail_col:
+            with st.container(key="word_rail"):
+                render_word_rail(
+                    target_lang,
+                    native_lang,
+                    title="Suggestions",
+                    empty_text="Words worth learning will appear here as you chat.",
+                    closable=True,
+                )
 
     stt_text = render_stt_input(key=active_session)
     user_input = st.chat_input("Type a message…")

@@ -54,3 +54,43 @@ def test_clear_word_suggestions_when_already_empty(monkeypatch):
     monkeypatch.setattr(word_chip.st, "session_state", fake_state)
     word_chip.clear_word_suggestions()
     assert word_chip.get_word_suggestions() == []
+
+
+def test_rail_opens_automatically_when_suggestions_exist(monkeypatch):
+    fake_state: dict = {"word_suggestions": [{"word": "食べる"}]}
+    monkeypatch.setattr(word_chip.st, "session_state", fake_state)
+    assert word_chip.rail_is_open() is True
+
+
+def test_rail_stays_closed_without_suggestions(monkeypatch):
+    fake_state: dict = {}
+    monkeypatch.setattr(word_chip.st, "session_state", fake_state)
+    assert word_chip.rail_is_open() is False
+
+
+def test_explicit_close_wins_over_auto_open(monkeypatch):
+    fake_state: dict = {
+        "word_suggestions": [{"word": "食べる"}],
+        "show_word_suggestions": False,
+    }
+    monkeypatch.setattr(word_chip.st, "session_state", fake_state)
+    assert word_chip.rail_is_open() is False
+
+
+def test_set_rail_open_records_explicit_choice(monkeypatch):
+    fake_state: dict = {"word_suggestions": [{"word": "食べる"}]}
+    monkeypatch.setattr(word_chip.st, "session_state", fake_state)
+    word_chip.set_rail_open(False)
+    assert fake_state["show_word_suggestions"] is False
+    assert word_chip.rail_is_open() is False
+
+
+def test_reset_word_rail_preference_restores_auto_behaviour(monkeypatch):
+    fake_state: dict = {
+        "word_suggestions": [{"word": "食べる"}],
+        "show_word_suggestions": False,
+    }
+    monkeypatch.setattr(word_chip.st, "session_state", fake_state)
+    word_chip.reset_word_rail_preference()
+    assert "show_word_suggestions" not in fake_state
+    assert word_chip.rail_is_open() is True

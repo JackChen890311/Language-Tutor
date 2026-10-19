@@ -690,9 +690,27 @@ div[class*="st-key-ltcard_danger_"] button[data-testid="stBaseButton-primary"]:h
 .lt-flash-translation { font-size: 1.15rem; font-weight: 600; margin-top: 0.9rem; }
 
 /* ---------- word / topic cards ---------------------------------------- */
-div[class*="st-key-lesson_words"] {
+div[data-testid="stLayoutWrapper"]:has(> div[class*="st-key-word_rail"]) {
     position: sticky;
     top: 1.2rem;
+    align-self: flex-start;
+    height: fit-content;
+}
+div[class*="st-key-word_rail"] {
+    max-height: calc(100vh - 3rem);
+    overflow-y: auto;
+    padding-right: 0.15rem;
+    scrollbar-width: thin;
+}
+@media (max-width: 900px) {
+    div[data-testid="stLayoutWrapper"]:has(> div[class*="st-key-word_rail"]) {
+        position: static;
+    }
+    div[class*="st-key-word_rail"] {
+        max-height: none;
+        overflow: visible;
+        padding-right: 0;
+    }
 }
 .lt-word {
     font-size: 1.3rem;
@@ -722,26 +740,35 @@ div[class*="st-key-lesson_words"] {
 }
 .lt-divider { height: 1px; background: var(--lt-border); margin: 0.7rem 0 0.55rem; }
 
-/* suggestion chip (chat / lesson side panel) */
+/* suggestion cards (chat / lesson side rail) */
 div[class*="st-key-wchip_"] {
     background: var(--lt-surface);
     border: 1px solid var(--lt-border);
-    border-radius: 0.85rem;
-    padding: 0.55rem 0.6rem 0.5rem;
-    margin-bottom: 0.35rem;
-    transition: border-color 0.16s ease, background 0.16s ease;
+    border-radius: 1rem;
+    padding: 0.7rem 0.75rem 0.5rem;
+    margin-bottom: 0.5rem;
+    box-shadow: var(--lt-shadow);
+    transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease,
+        box-shadow 0.16s ease;
 }
 div[class*="st-key-wchip_"]:hover {
+    transform: translateY(-1px);
     border-color: var(--lt-accent-border);
     background: var(--lt-accent-soft);
+    box-shadow: var(--lt-shadow-hover);
 }
-.lt-wchip-word { font-size: 1.02rem; font-weight: 650; line-height: 1.25; overflow-wrap: anywhere; }
-.lt-wchip-reading { font-size: 0.76rem; color: var(--lt-muted); }
+.lt-wchip-word {
+    font-size: 1.12rem;
+    font-weight: 650;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+.lt-wchip-reading { font-size: 0.8rem; color: var(--lt-muted); margin-top: 0.05rem; }
 div[class*="st-key-wchip_"] button {
     min-height: 0;
-    padding: 0.15rem 0.45rem;
-    font-size: 0.78rem;
-    border-radius: 0.5rem;
+    padding: 0.18rem 0.5rem;
+    font-size: 0.8rem;
+    border-radius: 0.55rem;
     box-shadow: none;
 }
 

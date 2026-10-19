@@ -4,11 +4,7 @@ from services.prompt_builder import get_difficulty_levels
 from ui import theme
 from ui.components.audio_controls import render_message_with_tts
 from ui.components.stream_display import stream_with_thinking
-from ui.components.word_chip import (
-    add_word_suggestions,
-    get_word_suggestions,
-    render_word_chips,
-)
+from ui.components.word_chip import add_word_suggestions, render_word_rail
 from ui.state import get
 
 
@@ -146,13 +142,13 @@ def _render_active_lesson(lesson_svc, language_svc, target_lang: str, native_lan
                     st.write(msg["content"])
 
     with side_col:
-        with st.container(key="lesson_words"):
-            theme.section_header("Words to learn", icon="💡")
-            suggestions = get_word_suggestions()
-            if suggestions:
-                render_word_chips(suggestions, lang=target_lang, native_lang=native_lang)
-            else:
-                st.caption("Words from this lesson will collect here as you go.")
+        with st.container(key="word_rail"):
+            render_word_rail(
+                target_lang,
+                native_lang,
+                title="Words to learn",
+                empty_text="Words from this lesson will collect here as you go.",
+            )
 
     user_input = st.chat_input("Your response…")
     if user_input:
