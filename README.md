@@ -23,21 +23,17 @@ A local-first AI language tutor that runs entirely on Apple Silicon. No cloud, n
 
 ## Screenshots
 
-| Home — light | Home — dark |
+| Home | Chat |
 | --- | --- |
-| ![Home in light mode](docs/screenshots/home-light.png) | ![Home in dark mode](docs/screenshots/home-dark.png) |
+| ![Home](docs/screenshots/home-dark.png) | ![Chat](docs/screenshots/chat-dark.png) |
 
-| Chat | Lesson |
+| Lesson | Word list |
 | --- | --- |
-| ![Chat](docs/screenshots/chat-dark.png) | ![Structured lesson](docs/screenshots/lesson-dark.png) |
+| ![Structured lesson](docs/screenshots/lesson-dark.png) | ![Word list](docs/screenshots/word-list-dark.png) |
 
-| Word list | Test |
+| Test | Settings |
 | --- | --- |
-| ![Word list](docs/screenshots/word-list-light.png) | ![Level test](docs/screenshots/test-dark.png) |
-
-| Settings — light | Settings — dark |
-| --- | --- |
-| ![Settings in light mode](docs/screenshots/settings-light.png) | ![Settings in dark mode](docs/screenshots/settings-dark.png) |
+| ![Level test](docs/screenshots/test-dark.png) | ![Settings](docs/screenshots/settings-dark.png) |
 
 ---
 
