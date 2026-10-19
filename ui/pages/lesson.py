@@ -1,17 +1,27 @@
 import streamlit as st
-from ui.state import get
-from ui.components.word_chip import render_word_chips, add_word_suggestions
-from ui.components.stream_display import stream_with_thinking
-from ui.components.audio_controls import render_message_with_tts
+
 from services.prompt_builder import get_difficulty_levels
+from ui import theme
+from ui.components.audio_controls import render_message_with_tts
+from ui.components.stream_display import stream_with_thinking
+from ui.components.word_chip import (
+    add_word_suggestions,
+    get_word_suggestions,
+    render_word_chips,
+)
+from ui.state import get
 
 
 def render() -> None:
-    st.title("📝 Lesson")
-
     language_svc = get("language_svc")
     native_lang, target_lang = language_svc.get_language_pair()
     lesson_svc = get("lesson_svc")
+
+    theme.page_header(
+        "📝",
+        "Lesson",
+        "Vocabulary, grammar and guided conversation on a topic you choose.",
+    )
 
     if "active_lesson" not in st.session_state:
         _render_topic_picker(lesson_svc, target_lang, native_lang)
@@ -19,53 +29,66 @@ def render() -> None:
         _render_active_lesson(lesson_svc, language_svc, target_lang, native_lang)
 
 
-def _render_topic_picker(lesson_svc, target_lang, native_lang) -> None:
-    st.subheader("Choose a topic")
-
+def _render_topic_picker(lesson_svc, target_lang: str, native_lang: str) -> None:
     framework = get_difficulty_levels(target_lang)
     levels = framework["levels"]
-    difficulty = st.select_slider(
-        f"Difficulty ({framework['name']})", options=levels, value=levels[len(levels) // 2]
-    )
+    midpoint = levels[len(levels) // 2]
 
-    def _pick_topic(topic: str) -> None:
-        st.session_state.lesson_topic_input = topic
-
-    def _submit_topic() -> None:
-        topic = st.session_state.get("lesson_topic_input", "").strip()
-        if topic:
-            st.session_state.pending_topic = topic
-
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        custom_topic = st.text_input(
-            "Or enter a custom topic:",
-            placeholder="e.g. ordering coffee",
-            key="lesson_topic_input",
-            on_change=_submit_topic,
+    with st.container(key="ltcard_topic_picker"):
+        theme.section_header(f"Difficulty · {framework['name']}", icon="🎚️")
+        difficulty = st.pills(
+            "Difficulty",
+            levels,
+            default=midpoint,
+            key=f"lesson_difficulty_{target_lang}",
+            label_visibility="collapsed",
         )
-    with col2:
-        if st.button("🎲 Suggest Topics"):
-            with st.spinner("Getting suggestions..."):
-                st.session_state.suggested_topics = lesson_svc.suggest_topics(target_lang)
+        if difficulty is None:
+            difficulty = midpoint
+
+        st.write("")
+        theme.section_header("Choose a topic", icon="🧭")
+        col1, col2 = st.columns([3, 1], vertical_alignment="bottom")
+        with col1:
+            custom_topic = st.text_input(
+                "Custom topic",
+                placeholder="e.g. ordering coffee",
+                key="lesson_topic_input",
+            )
+        with col2:
+            if st.button("🎲 Suggest topics", use_container_width=True):
+                with st.spinner("Getting suggestions…"):
+                    st.session_state.suggested_topics = lesson_svc.suggest_topics(target_lang)
+
+        if st.button(
+            "▶️  Start lesson",
+            type="primary",
+            disabled=not (custom_topic or "").strip(),
+        ):
+            st.session_state.pending_topic = custom_topic.strip()
 
     suggested = st.session_state.get("suggested_topics", [])
     if suggested:
-        st.write("**Suggested topics:**")
-        cols = st.columns(min(len(suggested), 5))
+        theme.section_header("Suggested topics", icon="✨")
+        columns = st.columns(min(len(suggested), 3))
         for i, topic in enumerate(suggested):
-            with cols[i % 5]:
-                st.button(topic, key=f"topic_{i}", on_click=_pick_topic, args=(topic,))
-
-    if custom_topic:
-        st.button("▶️ Start Lesson", on_click=_submit_topic)
+            with columns[i % 3]:
+                with st.container(key=f"ltcardhover_topic_{i}"):
+                    st.markdown(f"**{topic}**")
+                    if st.button(
+                        "Start this topic",
+                        key=f"topic_{i}",
+                        use_container_width=True,
+                        type="primary",
+                    ):
+                        st.session_state.pending_topic = topic
 
     pending_topic = st.session_state.pop("pending_topic", None)
     if pending_topic:
         _start_lesson(lesson_svc, target_lang, native_lang, pending_topic, difficulty)
 
 
-def _start_lesson(lesson_svc, target_lang, native_lang, topic, difficulty) -> None:
+def _start_lesson(lesson_svc, target_lang, native_lang, topic: str, difficulty: str) -> None:
     lesson_id, session_id, collector = lesson_svc.stream_start_lesson(
         target_lang, native_lang, topic, difficulty=difficulty
     )
@@ -86,44 +109,52 @@ def _start_lesson(lesson_svc, target_lang, native_lang, topic, difficulty) -> No
     st.rerun()
 
 
-def _render_active_lesson(lesson_svc, language_svc, target_lang, native_lang) -> None:
+def _render_active_lesson(lesson_svc, language_svc, target_lang: str, native_lang: str) -> None:
     lesson = st.session_state.active_lesson
     topic = lesson["topic"]
     phase = lesson["phase"]
-    phase_label = "📖 Structured Lesson" if phase == "structured" else "💬 Free Conversation"
+    is_structured = phase == "structured"
 
-    col1, col2 = st.columns([3, 1])
-
-    with col1:
-        header_col1, header_col2, header_col3 = st.columns([4, 2, 1])
-        with header_col1:
-            st.subheader(f"Topic: {topic} — {phase_label}")
-        with header_col2:
-            if phase == "structured":
-                if st.button("➡️ Move to Free Conversation"):
+    with st.container(key="ltcard_lesson_head"):
+        title_col, action_col = st.columns([3, 1], vertical_alignment="center")
+        with title_col:
+            st.markdown(f"### {topic}")
+            st.caption("Structured lesson" if is_structured else "Free conversation · speak freely")
+        with action_col:
+            if is_structured:
+                if st.button("➡️  Free conversation", use_container_width=True):
                     lesson["phase"] = "conversation"
                     st.rerun()
-        with header_col3:
-            if st.button("✅ Finish"):
+            if st.button("✅  Finish", use_container_width=True, type="primary"):
                 lesson_svc.finish_lesson(target_lang, topic)
                 language_svc.update_streak(target_lang)
                 del st.session_state.active_lesson
                 st.session_state.pop("suggested_topics", None)
                 st.rerun()
+        st.write("")
+        theme.stepper(["Structured lesson", "Free conversation"], 0 if is_structured else 1)
 
-        for msg in lesson["messages"]:
-            with st.chat_message(msg["role"]):
+    main_col, side_col = st.columns([3, 1], gap="large")
+
+    with main_col:
+        for i, msg in enumerate(lesson["messages"]):
+            avatar = "🗣️" if msg["role"] == "assistant" else None
+            with st.chat_message(msg["role"], avatar=avatar):
                 if msg["role"] == "assistant":
-                    render_message_with_tts(
-                        msg["content"], lang=target_lang, key=msg["content"][:20]
-                    )
+                    render_message_with_tts(msg["content"], lang=target_lang, key=f"hist{i}")
                 else:
                     st.write(msg["content"])
 
-    with col2:
-        render_word_chips(lang=target_lang, native_lang=native_lang)
+    with side_col:
+        with st.container(key="lesson_words"):
+            theme.section_header("Words to learn", icon="💡")
+            suggestions = get_word_suggestions()
+            if suggestions:
+                render_word_chips(suggestions, lang=target_lang, native_lang=native_lang)
+            else:
+                st.caption("Words from this lesson will collect here as you go.")
 
-    user_input = st.chat_input("Your response...")
+    user_input = st.chat_input("Your response…")
     if user_input:
         lesson["messages"].append({"role": "user", "content": user_input})
         with st.chat_message("user"):

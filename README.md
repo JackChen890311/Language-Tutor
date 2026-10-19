@@ -2,7 +2,7 @@
 
 A local-first AI language tutor that runs entirely on Apple Silicon. No cloud, no subscriptions — all models run on-device via [MLX](https://github.com/ml-explore/mlx).
 
-![Python](https://img.shields.io/badge/python-3.11+-blue) ![Streamlit](https://img.shields.io/badge/streamlit-1.35+-red) ![Platform](https://img.shields.io/badge/platform-Apple%20Silicon-black)
+![Python](https://img.shields.io/badge/python-3.11+-blue) ![Streamlit](https://img.shields.io/badge/streamlit-1.57+-red) ![Platform](https://img.shields.io/badge/platform-Apple%20Silicon-black)
 
 ---
 
@@ -12,6 +12,7 @@ A local-first AI language tutor that runs entirely on Apple Silicon. No cloud, n
 - **AI chat** — real-time streaming conversation with word suggestions and correction
 - **Level test** — auto-generated multiple-choice quiz that maps your score to JLPT / HSK / TOPIK / CEFR
 - **Word list** — one-click save of suggested words with full AI enrichment (translation, definitions, examples, conjugations, pitch accent, etc.)
+- **Light & dark themes** — a warm amber design system that follows your system appearance
 - **Rolling memory** — conversations summarize automatically as they grow, keeping context within token limits
 - **TTS playback** — hear any response or word pronounced (optional); target-language sentences are auto-tagged and each gets its own autoplaying 🔊 button
 - **Voice input** — speak instead of type with Whisper STT (optional)
@@ -20,18 +21,37 @@ A local-first AI language tutor that runs entirely on Apple Silicon. No cloud, n
 
 ---
 
+## Screenshots
+
+| Home — light | Home — dark |
+| --- | --- |
+| ![Home in light mode](docs/screenshots/home-light.png) | ![Home in dark mode](docs/screenshots/home-dark.png) |
+
+| Chat | Lesson |
+| --- | --- |
+| ![Chat](docs/screenshots/chat-dark.png) | ![Structured lesson](docs/screenshots/lesson-dark.png) |
+
+| Word list | Test |
+| --- | --- |
+| ![Word list](docs/screenshots/word-list-light.png) | ![Level test](docs/screenshots/test-dark.png) |
+
+| Settings — light | Settings — dark |
+| --- | --- |
+| ![Settings in light mode](docs/screenshots/settings-light.png) | ![Settings in dark mode](docs/screenshots/settings-dark.png) |
+
+---
+
 ## Supported Languages
 
-| Learning | Native |
-|---|---|
-| 🇯🇵 Japanese | 🇹🇼 Traditional Chinese |
-| 🇨🇳 Chinese (Simplified) | 🇺🇸 English |
-| 🇰🇷 Korean | 🇪🇸 Spanish |
-| 🇪🇸 Spanish | 🇫🇷 French |
-| 🇫🇷 French | 🇩🇪 German |
-| 🇩🇪 German | |
 
-Any combination of the above as native ↔ target pair is supported.
+Any combination of the following as native ↔ target pair is supported:
+- 🇹🇼 Traditional Chinese
+- 🇯🇵 Japanese
+- 🇰🇷 Korean
+- 🇺🇸 English
+- 🇪🇸 Spanish
+- 🇫🇷 French
+- 🇩🇪 German
 
 ---
 
@@ -134,6 +154,7 @@ DataStore (local JSON + Markdown files)
 
 **Design principles:**
 - Services have no Streamlit imports — they could back a CLI or Telegram bot
+- All visual styling lives in `ui/theme.py`; pages compose small helpers (cards, stats, steppers) and never ship their own CSS
 - Models are lazy-loaded and can be unloaded individually to reclaim RAM
 - All data is plain JSON/Markdown — human-readable and easy to back up
 

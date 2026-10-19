@@ -955,7 +955,7 @@ requires-dist = [
     { name = "mlx-lm", specifier = ">=0.21.0" },
     { name = "mlx-vlm", specifier = ">=0.1.9" },
     { name = "mlx-whisper", specifier = ">=0.0.9" },
-    { name = "streamlit", specifier = ">=1.35.0" },
+    { name = "streamlit", specifier = ">=1.57.0" },
     { name = "torch", specifier = ">=2.11.0" },
     { name = "torchvision", specifier = ">=0.26.0" },
 ]

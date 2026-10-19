@@ -47,3 +47,43 @@ class LanguageService:
             ),
             "lessons_completed": len(lessons.get("completed", [])),
         }
+
+    def get_active_dates(self, lang: str, days: int = 7) -> list[str]:
+        """ISO dates within the last ``days`` days with any learning activity.
+
+        Activity is derived from the streak (which records consecutive days but
+        not each day individually), word reviews, finished quizzes and chat
+        sessions.
+        """
+        today = date.today()
+        cutoff = today - timedelta(days=days - 1)
+        found: set[str] = set()
+
+        streak = self._store.load_streak(lang)
+        last_active = streak.get("last_active")
+        streak_len = streak.get("streak", 0)
+        if last_active and streak_len:
+            try:
+                cursor = date.fromisoformat(str(last_active)[:10])
+            except ValueError:
+                cursor = None
+            for _ in range(min(streak_len, days)):
+                if cursor is None or cursor < cutoff:
+                    break
+                found.add(cursor.isoformat())
+                cursor -= timedelta(days=1)
+
+        for word in self._store.load_wordlist(lang):
+            last_reviewed = (word.get("review_stats") or {}).get("last_reviewed")
+            if last_reviewed:
+                found.add(str(last_reviewed)[:10])
+
+        for attempt in self._store.load_quiz_history(lang):
+            if attempt.get("tested_at"):
+                found.add(str(attempt["tested_at"])[:10])
+
+        for session in self._store.list_chat_sessions(lang):
+            if session.get("created_at"):
+                found.add(str(session["created_at"])[:10])
+
+        return sorted(d for d in found if cutoff.isoformat() <= d <= today.isoformat())

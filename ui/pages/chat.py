@@ -1,153 +1,170 @@
+import os
 import tempfile
+
 import streamlit as st
-from ui.state import get
+
+from ui import theme
+from ui.components.audio_controls import render_message_with_tts, render_stt_input
+from ui.components.stream_display import stream_with_thinking
 from ui.components.word_chip import (
-    render_word_chips,
     add_word_suggestions,
     clear_word_suggestions,
     get_word_suggestions,
+    render_word_chips,
 )
-from ui.components.audio_controls import render_message_with_tts, render_stt_input
-from ui.components.stream_display import stream_with_thinking
+from ui.state import get
+
+
+def _render_sessions(store, target_lang: str, active_session: str | None) -> None:
+    st.markdown("##### 💬 Sessions")
+    if st.button("➕  New chat", key="new_chat", use_container_width=True, type="secondary"):
+        name = "新對話"
+        st.session_state.active_session = store.create_chat_session(target_lang, name)
+        st.session_state.pop("renaming_session", None)
+        clear_word_suggestions()
+        st.rerun()
+
+    with st.container(key="chat_sessions"):
+        for s in reversed(store.list_chat_sessions(target_lang)):
+            cols = st.columns([6, 1], vertical_alignment="center")
+            with cols[0]:
+                is_active = s["id"] == active_session
+                if st.button(
+                    s["name"],
+                    key=f"sel_{s['id']}",
+                    use_container_width=True,
+                    type="primary" if is_active else "tertiary",
+                ):
+                    st.session_state.active_session = s["id"]
+                    st.rerun()
+            with cols[1]:
+                if st.button("🗑", key=f"del_{s['id']}", type="tertiary", help="Delete chat"):
+                    store.delete_chat_session(target_lang, s["id"])
+                    if active_session == s["id"]:
+                        st.session_state.pop("active_session", None)
+                    st.rerun()
+
+
+def _render_suggestions(target_lang: str, native_lang: str) -> None:
+    suggestions = get_word_suggestions()
+    if not suggestions:
+        return
+    theme.section_header(
+        "Words from this chat", caption=f"{len(suggestions)} saved suggestions", icon="💡"
+    )
+    columns = st.columns(4)
+    for i, suggestion in enumerate(suggestions):
+        with columns[i % 4]:
+            render_word_chips([suggestion], lang=target_lang, native_lang=native_lang)
 
 
 def render() -> None:
-    st.title("💬 Chat")
-
     language_svc = get("language_svc")
     native_lang, target_lang = language_svc.get_language_pair()
     store = get("store")
     chat_svc = get("chat_svc")
 
-    with st.sidebar:
-        st.subheader("Sessions")
-        sessions = store.list_chat_sessions(target_lang)
-
-        if st.button("➕ New Chat"):
-            name = "新對話"
-            st.session_state.active_session = store.create_chat_session(target_lang, name)
-            st.session_state.pop("renaming_session", None)
-            clear_word_suggestions()
-            st.rerun()
-
-        for s in reversed(sessions):
-            cols = st.columns([4, 1])
-            with cols[0]:
-                if st.button(s["name"], key=f"sel_{s['id']}"):
-                    st.session_state.active_session = s["id"]
-                    st.rerun()
-            with cols[1]:
-                if st.button("🗑", key=f"del_{s['id']}"):
-                    store.delete_chat_session(target_lang, s["id"])
-                    if st.session_state.get("active_session") == s["id"]:
-                        st.session_state.pop("active_session", None)
-                    st.rerun()
+    theme.page_header(
+        "💬",
+        "Chat",
+        "Free conversation with corrections, suggestions and pronunciation.",
+    )
 
     active_session = st.session_state.get("active_session")
+    with st.sidebar:
+        _render_sessions(store, target_lang, active_session)
+
     if not active_session:
-        st.info("Select or create a chat session from the sidebar.")
+        theme.empty_state(
+            "💬",
+            "Pick a conversation",
+            "Choose a session in the sidebar, or start a new chat to begin talking.",
+        )
         return
 
-    session_info = next((s for s in sessions if s["id"] == active_session), None)
+    session_info = next(
+        (s for s in store.list_chat_sessions(target_lang) if s["id"] == active_session), None
+    )
 
-    # Toggle button for word suggestions at top of chat
-    show_suggestions = st.session_state.get("show_word_suggestions", False)
-    if st.button("💡 Word Suggestions"):
-        st.session_state.show_word_suggestions = not show_suggestions
-        st.rerun()
+    title_col, rename_col, suggest_col = st.columns([6, 1, 2], vertical_alignment="center")
+    with title_col:
+        st.markdown(f"### {session_info['name'] if session_info else 'Chat'}")
+    with rename_col:
+        if st.button("✏️", key=f"rename_{active_session}", help="Rename chat", type="tertiary"):
+            st.session_state.renaming_session = active_session
+            st.rerun()
+    with suggest_col:
+        suggestions = get_word_suggestions()
+        label = f"💡 Suggestions · {len(suggestions)}" if suggestions else "💡 Suggestions"
+        show = st.session_state.get("show_word_suggestions", False)
+        if st.button(
+            label,
+            key="toggle_suggestions",
+            use_container_width=True,
+            type="primary" if show else "tertiary",
+        ):
+            st.session_state.show_word_suggestions = not show
+            st.rerun()
 
-    # Show word suggestions in 3-column layout at top (when toggled)
-    if show_suggestions:
-        st.markdown("---")
-        # Get all word suggestions to distribute evenly across columns
-        word_suggestions = get_word_suggestions()
-
-        if word_suggestions:
-            col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
-
-            # Calculate split points for even distribution
-            total_words = len(word_suggestions)
-            col1_count = (total_words + 3) // 4  # Round up to handle odd numbers
-            col2_count = (total_words + 2) // 4
-            col3_count = (total_words + 1) // 4
-
-            # Split words into three groups
-            col1_words = word_suggestions[:col1_count]
-            col2_words = word_suggestions[col1_count : col1_count + col2_count]
-            col3_words = word_suggestions[
-                col1_count + col2_count : col1_count + col2_count + col3_count
-            ]
-            col4_words = word_suggestions[col1_count + col2_count + col3_count :]
-
-            with col1:
-                render_word_chips(word_list=col1_words, lang=target_lang, native_lang=native_lang)
-            with col2:
-                render_word_chips(word_list=col2_words, lang=target_lang, native_lang=native_lang)
-            with col3:
-                render_word_chips(word_list=col3_words, lang=target_lang, native_lang=native_lang)
-            with col4:
-                render_word_chips(word_list=col4_words, lang=target_lang, native_lang=native_lang)
-
-    # Main chat area below (single column for actual chatting)
-    st.markdown("---")
-
-    col1 = st.container()
-    with col1:
-        if session_info:
-            title_col, rename_col = st.columns([4, 1])
-            with title_col:
-                st.subheader(session_info["name"])
-            with rename_col:
-                if st.button("✏️", key=f"rename_{active_session}", help="重新命名"):
-                    st.session_state.renaming_session = active_session
-                    st.rerun()
-            if st.session_state.get("renaming_session") == active_session:
-                new_name = st.text_input(
-                    "聊天室名稱",
-                    value=session_info["name"],
-                    key=f"rename_input_{active_session}",
-                    max_chars=30,
-                )
-                save_col, cancel_col = st.columns(2)
-                with save_col:
-                    if st.button("儲存", key=f"rename_save_{active_session}"):
-                        if store.rename_chat_session(target_lang, active_session, new_name):
-                            st.session_state.pop("renaming_session", None)
-                            st.rerun()
-                        else:
-                            st.warning("名稱不可為空")
-                with cancel_col:
-                    if st.button("取消", key=f"rename_cancel_{active_session}"):
+    if st.session_state.get("renaming_session") == active_session:
+        with st.container(key="ltcard_rename"):
+            new_name = st.text_input(
+                "Chat name",
+                value=session_info["name"] if session_info else "",
+                key=f"rename_input_{active_session}",
+                max_chars=30,
+            )
+            save_col, cancel_col = st.columns(2)
+            with save_col:
+                if st.button("Save", key=f"rename_save_{active_session}", type="primary"):
+                    if store.rename_chat_session(target_lang, active_session, new_name):
                         st.session_state.pop("renaming_session", None)
                         st.rerun()
+                    else:
+                        st.warning("Name cannot be empty.")
+            with cancel_col:
+                if st.button("Cancel", key=f"rename_cancel_{active_session}"):
+                    st.session_state.pop("renaming_session", None)
+                    st.rerun()
 
-        messages = chat_svc.get_history(target_lang, active_session)
-        for msg in messages:
-            with st.chat_message(msg["role"]):
-                if msg["role"] == "assistant":
-                    render_message_with_tts(
-                        msg["content"], lang=target_lang, key=msg["content"][:20]
-                    )
-                else:
-                    st.write(msg["content"])
+    if st.session_state.get("show_word_suggestions"):
+        if get_word_suggestions():
+            _render_suggestions(target_lang, native_lang)
+        else:
+            st.caption("Words worth learning will appear here as you chat.")
 
-        uploaded_image = st.file_uploader(
-            "📷 Attach image (optional)",
-            type=["jpg", "jpeg", "png"],
-            key=f"img_{active_session}",
-            label_visibility="collapsed",
+    theme.section_header("Conversation", icon="🗨️")
+
+    messages = chat_svc.get_history(target_lang, active_session)
+    if not messages:
+        theme.empty_state(
+            "🌱",
+            "Say hello",
+            "Try a simple greeting, ask about the weather, or describe your day.",
         )
-        image_path = None
-        if uploaded_image:
-            import os
 
-            suffix = os.path.splitext(uploaded_image.name)[1]
-            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
-                f.write(uploaded_image.getvalue())
-                image_path = f.name
+    for i, msg in enumerate(messages):
+        with st.chat_message(msg["role"]):
+            if msg["role"] == "assistant":
+                render_message_with_tts(msg["content"], lang=target_lang, key=f"hist{i}")
+            else:
+                st.write(msg["content"])
+
+    uploaded_image = st.file_uploader(
+        "📷 Attach an image (optional)",
+        type=["jpg", "jpeg", "png"],
+        key=f"img_{active_session}",
+        label_visibility="collapsed",
+    )
+    image_path = None
+    if uploaded_image:
+        suffix = os.path.splitext(uploaded_image.name)[1]
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
+            f.write(uploaded_image.getvalue())
+            image_path = f.name
 
     stt_text = render_stt_input(key=active_session)
-    user_input = st.chat_input("Type a message...")
+    user_input = st.chat_input("Type a message…")
     final_input = stt_text or user_input
 
     if final_input:

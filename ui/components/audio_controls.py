@@ -59,13 +59,17 @@ def render_message_with_tts(text: str, lang: str, key: str) -> None:
 
     for i, seg in enumerate(segments):
         if seg["type"] == "text":
-            st.markdown(seg["content"])
-        else:
-            col_text, col_btn = st.columns([10, 1])
+            if seg["content"].strip():
+                st.markdown(seg["content"])
+            continue
+        with st.container(key=f"speak_{key}_{i}"):
+            col_text, col_btn = st.columns([14, 1], vertical_alignment="center")
             with col_text:
                 st.markdown(f"**{seg['content']}**")
             with col_btn:
-                if tts_available and st.button("🔊", key=f"tts_{key}_{i}", help="Play audio"):
+                if tts_available and st.button(
+                    "🔊", key=f"tts_{key}_{i}", help="Play audio", type="tertiary"
+                ):
                     with st.spinner(""):
                         tts = mm.get_tts()
                         audio_bytes = tts.synthesize(strip_furigana(seg["content"]), lang=lang)

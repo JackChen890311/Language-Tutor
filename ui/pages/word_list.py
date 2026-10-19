@@ -87,10 +87,12 @@ def _render_browse(word_svc, target_lang: str, native_lang: str) -> None:
 
     mm = get("mm")
     tts_available = mm.is_model_available("tts")
-    columns = st.columns(3)
-    for i, word in enumerate(words):
-        with columns[i % 3]:
-            _render_word_card(word, word_svc, target_lang, tts_available, mm)
+    for start in range(0, len(words), 3):
+        row = words[start : start + 3]
+        columns = st.columns(3)
+        for column, word in zip(columns, row):
+            with column:
+                _render_word_card(word, word_svc, target_lang, tts_available, mm)
 
 
 def _render_word_card(word, word_svc, target_lang, tts_available, mm) -> None:
@@ -132,8 +134,10 @@ def _render_word_card(word, word_svc, target_lang, tts_available, mm) -> None:
 
         examples = word.get("examples") or []
         if examples:
-            st.markdown(f'<div class="lt-muted">“{_esc(examples[0])}”</div>',
-                        unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="lt-example">“{_esc(examples[0])}”</div>',
+                unsafe_allow_html=True,
+            )
 
         _render_details(word, examples[1:])
 
@@ -148,7 +152,7 @@ def _pills_html(word: dict) -> str:
         word.get("proficiency_level"),
     ]
     pills = [theme.tag(label) for label in labels if label and label != "-"]
-    pills += [theme.tag(tag, accent=True) for tag in word.get("tags", [])]
+    pills += [theme.tag(f"#{tag}", accent=True) for tag in word.get("tags", [])]
     return f'<div class="lt-tagrow">{"".join(pills)}</div>' if pills else ""
 
 
@@ -198,8 +202,9 @@ def _render_card_actions(word, word_svc, target_lang) -> None:
         st.caption(f"Delete **{word['word']}**?")
         dcol1, dcol2 = st.columns(2)
         with dcol1:
-            if st.button("Yes, delete", key=f"yes_del_{word_id}", use_container_width=True,
-                         type="primary"):
+            if st.button(
+                "Yes, delete", key=f"yes_del_{word_id}", use_container_width=True, type="primary"
+            ):
                 word_svc.delete_word(target_lang, word_id)
                 del st.session_state[confirm_key]
                 st.rerun()
@@ -212,8 +217,7 @@ def _render_card_actions(word, word_svc, target_lang) -> None:
     action_col1, action_col2 = st.columns([1.7, 1])
     with action_col1:
         if is_reviewed:
-            if st.button("Mark not reviewed", key=f"unreview_{word_id}",
-                         use_container_width=True):
+            if st.button("Mark not reviewed", key=f"unreview_{word_id}", use_container_width=True):
                 word_svc.set_review_status(target_lang, word_id, False)
                 st.rerun()
         else:
@@ -313,9 +317,7 @@ def _render_flashcard(word, word_svc, target_lang: str) -> None:
             )
 
         mm = get("mm")
-        if mm.is_model_available("tts") and st.button(
-            "🔊  Hear it", key=f"rev_tts_{word['id']}"
-        ):
+        if mm.is_model_available("tts") and st.button("🔊  Hear it", key=f"rev_tts_{word['id']}"):
             with st.spinner(""):
                 tts = mm.get_tts()
                 audio_bytes = tts.synthesize(word["word"], lang=target_lang)
@@ -323,9 +325,7 @@ def _render_flashcard(word, word_svc, target_lang: str) -> None:
 
         if st.session_state.review_revealed:
             if word.get("translation"):
-                st.html(
-                    f'<div class="lt-flash-translation">{_esc(word["translation"])}</div>'
-                )
+                st.html(f'<div class="lt-flash-translation">{_esc(word["translation"])}</div>')
             st.markdown(f"**{word.get('definition', '')}**")
             if word.get("grammar_notes"):
                 st.caption(word["grammar_notes"])
@@ -352,7 +352,7 @@ def _render_fill_blank(word, word_svc, target_lang: str, idx: int) -> None:
             if word["word"] in example
             else f"______ ({word.get('reading', '')})"
         )
-        st.markdown(f"**Fill in the blank**")
+        st.markdown("**Fill in the blank**")
         st.markdown(f"### {blanked}")
         answer = st.text_input("Your answer:", key=f"fib_{word['id']}_{idx}")
         if st.button("Check", type="primary", use_container_width=True):

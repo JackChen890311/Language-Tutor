@@ -3,7 +3,7 @@ name = "language-tutor"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-    "streamlit>=1.35.0",
+    "streamlit>=1.57.0",
     "mlx-lm>=0.21.0",
     "mlx-vlm>=0.1.9",
     "mlx-audio>=0.2.0",
