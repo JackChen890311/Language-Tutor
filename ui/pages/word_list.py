@@ -6,6 +6,21 @@ from ui import theme
 from ui.components.audio_controls import autoplay_audio_html
 from ui.state import get
 
+_SORT_OPTIONS = {
+    "Newest first": "newest",
+    "Oldest first": "oldest",
+    "A → Z": "az",
+    "Z → A": "za",
+    "Most reviewed": "most_reviewed",
+}
+
+_REVIEW_OPTIONS = {
+    "All": "all",
+    "Due": "due",
+    "Never reviewed": "never",
+    "Reviewed": "reviewed",
+}
+
 
 def _has_kanji(text: str) -> bool:
     return any("\u4e00" <= ch <= "\u9fff" or "\u3400" <= ch <= "\u4dbf" for ch in text)
@@ -45,8 +60,8 @@ def render() -> None:
 
 
 def _render_browse(word_svc, target_lang: str, native_lang: str) -> None:
-    words = word_svc.get_all_words(target_lang)
-    if not words:
+    all_words = word_svc.get_all_words(target_lang)
+    if not all_words:
         theme.empty_state(
             "🌱",
             "No words saved yet",
@@ -54,36 +69,80 @@ def _render_browse(word_svc, target_lang: str, native_lang: str) -> None:
         )
         return
 
+    all_tags = sorted({tag for w in all_words for tag in w.get("tags", [])})
+    levels = sorted(
+        {
+            w["proficiency_level"]
+            for w in all_words
+            if w.get("proficiency_level") and w["proficiency_level"] != "-"
+        }
+    )
+
     with st.container(key="ltcard_filters"):
-        search_col, _ = st.columns([2, 1])
+        search_col, sort_col = st.columns([2, 1])
         with search_col:
-            query = st.text_input("Search", placeholder="🔍  Search words…")
-        all_tags = sorted({tag for w in words for tag in w.get("tags", [])})
+            query = st.text_input("Search", placeholder="🔍  Search words…", key="wordlist_search")
+        with sort_col:
+            sort_label = st.selectbox(
+                "Sort by",
+                list(_SORT_OPTIONS),
+                key="wordlist_sort",
+                help="Alphabetical order follows the reading when one exists.",
+            )
+
+        if len(levels) > 1:
+            filter_col1, filter_col2 = st.columns(2)
+            with filter_col1:
+                status_label = st.pills(
+                    "Review status",
+                    list(_REVIEW_OPTIONS),
+                    default="All",
+                    key="wordlist_status",
+                    help="Due = never reviewed or not reviewed in the last 7 days.",
+                )
+            with filter_col2:
+                level_label = st.pills(
+                    "Level", ["All"] + levels, default="All", key="wordlist_level"
+                )
+        else:
+            status_label = st.pills(
+                "Review status",
+                list(_REVIEW_OPTIONS),
+                default="All",
+                key="wordlist_status",
+                help="Due = never reviewed or not reviewed in the last 7 days.",
+            )
+            level_label = "All"
+
         selected_tag = "All"
         if all_tags:
-            picked = st.pills(
-                "Tags",
-                ["All"] + all_tags,
-                default="All",
-                key="wordlist_tag",
-                label_visibility="collapsed",
-            )
+            picked = st.pills("Tags", ["All"] + all_tags, default="All", key="wordlist_tag")
             selected_tag = picked or "All"
 
-    if query:
-        words = word_svc.search(target_lang, query)
-    if selected_tag != "All":
-        words = [w for w in words if selected_tag in w.get("tags", [])]
+    words = word_svc.browse(
+        target_lang,
+        query=query or "",
+        tag=selected_tag,
+        level=level_label or "All",
+        review_status=_REVIEW_OPTIONS.get(status_label or "All", "all"),
+        sort=_SORT_OPTIONS.get(sort_label or "Newest first", "newest"),
+    )
 
     if not words:
-        theme.empty_state("🔍", "No matches", "Try a different search term or tag.")
+        theme.empty_state(
+            "🔍",
+            "No matches",
+            "Try a different search, tag, level or review filter.",
+        )
         return
 
-    theme.section_header(
-        "Your words",
-        caption=f"{len(words)} word{'s' if len(words) != 1 else ''}",
-        icon="📖",
+    total = len(all_words)
+    caption = (
+        f"{len(words)} word{'s' if len(words) != 1 else ''}"
+        if len(words) == total
+        else f"{len(words)} of {total} words"
     )
+    theme.section_header("Your words", caption=caption, icon="📖")
 
     mm = get("mm")
     tts_available = mm.is_model_available("tts")

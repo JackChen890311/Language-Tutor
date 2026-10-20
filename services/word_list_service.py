@@ -9,6 +9,90 @@ from services.prompt_builder import PromptBuilder
 STALE_DAYS = 7
 
 
+def _review_stats(word: dict) -> dict:
+    stats = word.get("review_stats")
+    return stats if isinstance(stats, dict) else {}
+
+
+def is_word_due(word: dict, today: date | None = None) -> bool:
+    """A word is due when it has never been reviewed or the review is stale."""
+    last = _review_stats(word).get("last_reviewed")
+    if not last:
+        return True
+    cutoff = (today or date.today()) - timedelta(days=STALE_DAYS)
+    return last < cutoff.isoformat()
+
+
+def filter_and_sort_words(
+    words: list[dict],
+    *,
+    query: str = "",
+    tag: str = "All",
+    level: str = "All",
+    review_status: str = "all",
+    sort: str = "newest",
+    today: date | None = None,
+) -> list[dict]:
+    """Filter and order words for the Browse view.
+
+    ``review_status`` accepts ``all``, ``due``, ``never`` and ``reviewed``.
+    ``sort`` accepts ``newest``, ``oldest``, ``az``, ``za`` and
+    ``most_reviewed``. Alphabetical sorting uses the reading when available,
+    which gives a sensible order for languages that use kanji.
+    """
+    tag = tag or "All"
+    level = level or "All"
+    needle = query.strip().casefold()
+
+    selected: list[tuple[int, dict]] = []
+    for index, word in enumerate(words):
+        if needle:
+            word_text = str(word.get("word", "")).casefold()
+            reading_text = str(word.get("reading", "")).casefold()
+            if needle not in word_text and needle not in reading_text:
+                continue
+        if tag != "All" and tag not in word.get("tags", []):
+            continue
+        if level != "All" and word.get("proficiency_level") != level:
+            continue
+        last_reviewed = _review_stats(word).get("last_reviewed")
+        if review_status == "due" and not is_word_due(word, today):
+            continue
+        if review_status == "never" and last_reviewed:
+            continue
+        if review_status == "reviewed" and not last_reviewed:
+            continue
+        selected.append((index, word))
+
+    def _added_key(item: tuple[int, dict]) -> tuple[str, int]:
+        index, word = item
+        return (str(word.get("added_date") or ""), index)
+
+    def _alpha_key(item: tuple[int, dict]) -> tuple[str, str]:
+        word = item[1]
+        reading_or_word = str(word.get("reading") or word.get("word") or "").casefold()
+        return (reading_or_word, str(word.get("word") or "").casefold())
+
+    def _reviewed_key(item: tuple[int, dict]) -> tuple[int, str, int]:
+        index, word = item
+        stats = _review_stats(word)
+        count = int(stats.get("correct") or 0) + int(stats.get("incorrect") or 0)
+        return (count, str(word.get("added_date") or ""), index)
+
+    if sort == "oldest":
+        selected.sort(key=_added_key)
+    elif sort == "az":
+        selected.sort(key=_alpha_key)
+    elif sort == "za":
+        selected.sort(key=_alpha_key, reverse=True)
+    elif sort == "most_reviewed":
+        selected.sort(key=_reviewed_key, reverse=True)
+    else:
+        selected.sort(key=_added_key, reverse=True)
+
+    return [word for _, word in selected]
+
+
 class WordListService:
     def __init__(
         self, store: DataStore, model_manager: ModelManager, prompt_builder: PromptBuilder
@@ -83,23 +167,29 @@ class WordListService:
         words = self._store.load_wordlist(lang)
         return [w for w in words if tag in w.get("tags", [])]
 
+    def browse(
+        self,
+        lang: str,
+        query: str = "",
+        tag: str = "All",
+        level: str = "All",
+        review_status: str = "all",
+        sort: str = "newest",
+    ) -> list[dict]:
+        return filter_and_sort_words(
+            self._store.load_wordlist(lang),
+            query=query,
+            tag=tag,
+            level=level,
+            review_status=review_status,
+            sort=sort,
+        )
+
     def has_stale_words(self, lang: str) -> bool:
-        words = self._store.load_wordlist(lang)
-        cutoff = (date.today() - timedelta(days=STALE_DAYS)).isoformat()
-        for w in words:
-            last = w.get("review_stats", {}).get("last_reviewed")
-            if last is None or last < cutoff:
-                return True
-        return False
+        return any(is_word_due(w) for w in self._store.load_wordlist(lang))
 
     def get_stale_words(self, lang: str) -> list[dict]:
-        words = self._store.load_wordlist(lang)
-        cutoff = (date.today() - timedelta(days=STALE_DAYS)).isoformat()
-        return [
-            w
-            for w in words
-            if (last := w.get("review_stats", {}).get("last_reviewed")) is None or last < cutoff
-        ]
+        return [w for w in self._store.load_wordlist(lang) if is_word_due(w)]
 
     def get_all_words(self, lang: str) -> list[dict]:
         return self._store.load_wordlist(lang)
