@@ -67,3 +67,70 @@
   Safari 17.5+, Firefox 120+), which matches the app's macOS + Streamlit 1.57
   baseline. `stApp` receives an explicit `color-scheme` from Streamlit in both
   modes.
+
+## Phase C — Word List sorting and filtering (evening)
+
+### Features Implemented
+
+- [x] Added a sort control to Word List → Browse: Newest first, Oldest first,
+      A → Z, Z → A, and Most reviewed
+- [x] Added a review-status filter: All, Due, Never reviewed, Reviewed
+- [x] Added a proficiency-level filter when the list contains more than one level
+- [x] Kept search and tag pills, and combined every control in the filter card
+- [x] Moved filtering/sorting into `WordListService.browse()` via a pure
+      `filter_and_sort_words()` helper
+- [x] Reused one `is_word_due()` definition for the review filter and the
+      existing stale-word badge/queue
+- [x] Added service and page tests for the new behaviour
+- [x] Verified the controls headlessly with Streamlit `AppTest`
+
+### Changes Made
+
+#### services/word_list_service.py
+
+- Added `filter_and_sort_words(words, *, query, tag, level, review_status,
+  sort, today)`, a pure helper accepting `review_status` keys `all` / `due` /
+  `never` / `reviewed` and `sort` keys `newest` / `oldest` / `az` / `za` /
+  `most_reviewed`.
+- Added `is_word_due(word, today)`, the single definition of "due": never
+  reviewed or last reviewed more than `STALE_DAYS` ago.
+- Added `WordListService.browse(lang, ...)` as the UI-facing entry point.
+- `has_stale_words()` and `get_stale_words()` now use `is_word_due()`, so the
+  Browse "Due" filter and the sidebar review count cannot disagree.
+- Newest-first ordering uses `added_date` plus insertion order, so words saved on
+  the same day appear most-recent first. Alphabetical modes sort by `reading`
+  when present and fall back to `word`.
+
+#### ui/pages/word_list.py
+
+- Browse filter card now has a Search + Sort by row, a Review status row (with a
+  Level row beside it when more than one level exists), and the existing Tags
+  pills.
+- UI labels map to stable service keys through `_SORT_OPTIONS` and
+  `_REVIEW_OPTIONS`.
+- The section caption shows `N of M words` when filters narrow the list, and
+  the no-matches empty state mentions all filter types.
+
+#### tests
+
+- `tests/test_word_list_service.py`: due-date boundary and never-reviewed
+  handling, query/tag/level combinations, review-status filters,
+  newest/oldest, alphabetical-by-reading, most-reviewed ordering, and a
+  `browse()` integration test.
+- `tests/test_word_list_page.py`: option maps stay aligned with the service key
+  sets.
+
+### Testing Performed
+
+- `make test`: **151 passed**
+- `make lint`: clean
+- Streamlit `AppTest` smoke run with three words:
+  - default order is newest → oldest
+  - A → Z sorts by reading
+  - Due excludes a word reviewed the day before
+  - review status + level combine, tag filtering works, and Most reviewed
+    orders by total attempts
+
+### Commit
+
+- `feat: add sorting and filtering to word list` (`f291ba8`)

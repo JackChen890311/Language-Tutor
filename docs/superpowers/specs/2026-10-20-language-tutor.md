@@ -2,11 +2,13 @@
 
 ## Summary
 
-Fixes the missing in-app theme switcher and makes theme changes instant.
+Fixes the missing in-app theme switcher and makes theme changes instant. Later
+the same day, Word List Browse gained sorting and extra filters.
 
 Delta vs the 2026-10-19 spec: the main menu is available again, the custom CSS
 emits both palettes instead of one, and shadow tokens are split into colours and
-offsets. No service, data, prompt or model changes.
+offsets. The theme change made no service, data, prompt or model changes; the
+Word List addition below adds a read-only service helper only.
 
 ## Problem
 
@@ -92,3 +94,64 @@ available if a future feature needs it, but it is not used for styling.
 
 `light-dark()` needs `color-scheme` support: Chrome 123+, Safari 17.5+, Firefox
 120+. The app already targets a current macOS browser and Streamlit 1.57.
+
+## Word List sorting and filtering
+
+### Problem
+
+Word List → Browse only supported free-text search and tag pills. Users could
+not reorder the list, isolate words due for review, or narrow it to one
+proficiency level, which became awkward as the saved list grew.
+
+### Design
+
+Filtering and ordering are service concerns, not page logic.
+`filter_and_sort_words()` is a pure helper; `WordListService.browse()` loads the
+list and applies it. It accepts stable keys rather than UI labels:
+
+| Control | Keys |
+|---|---|
+| Review status | `all`, `due`, `never`, `reviewed` |
+| Sort | `newest`, `oldest`, `az`, `za`, `most_reviewed` |
+| Tag | `"All"` or a tag string |
+| Level | `"All"` or a proficiency value |
+| Query | matched against word and reading |
+
+- **Due** means never reviewed or last reviewed more than the existing
+  `STALE_DAYS` (7) ago. `is_word_due()` is now the single definition used by the
+  Browse filter, `has_stale_words()` and `get_stale_words()`, so the review
+  queue and sidebar badge stay consistent.
+- **Newest/oldest** order by `added_date`, with insertion order as the tie-break
+  so same-day additions are still deterministic.
+- **A → Z / Z → A** sort by `reading` when present, falling back to `word`. This
+  gives useful ordering for kanji words instead of Unicode code-point order.
+- **Most reviewed** orders by `correct + incorrect` attempts, newest-added first
+  on ties.
+
+In the Browse filter card:
+
+1. Search and Sort by share one row.
+2. Review status renders as pills; when the list contains more than one
+   proficiency level, Level pills render beside it.
+3. Tags remain their own pills row and only appear when tags exist.
+
+The section caption shows `N of M words` while any filter is active. The
+no-matches state names search, tag, level and review filters as possible causes.
+
+### Behaviour
+
+- Changing any control reruns the page and updates the card grid immediately.
+- Search, tag, level and review filters combine (logical AND).
+- The selected sort applies after filtering.
+- Defaults are Search empty, Sort by Newest first, Review status All, Level All,
+  Tags All.
+- Filter state persists in session state under `wordlist_*` keys across section
+  switches.
+
+### Testing
+
+- `make test`: 151 passed.
+- `make lint`: clean.
+- Streamlit `AppTest` smoke run verified control rendering, newest/A–Z ordering,
+  the Due filter, combined review-status + level filters, tag filtering, and
+  Most reviewed ordering. No runtime exceptions.
