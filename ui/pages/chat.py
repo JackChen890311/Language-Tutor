@@ -157,7 +157,7 @@ def render() -> None:
             if suggestions:
                 help_text += f" ({len(suggestions)})"
             if st.button(
-                f"💡 Suggestions · {len(suggestions)}" if suggestions else "💡 Suggestions",
+                f"💡 {len(suggestions)}" if suggestions else "💡",
                 key="toggle_suggestions",
                 help=help_text,
                 type="primary" if show_rail else "tertiary",
