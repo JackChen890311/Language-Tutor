@@ -42,7 +42,9 @@ class BaseTTS(ABC):
 
 class BaseSTT(ABC):
     @abstractmethod
-    def transcribe(self, audio: str | bytes) -> str: ...
+    def transcribe(
+        self, audio: str | bytes, lang: str | None = None, fallback_lang: str | None = None
+    ) -> str: ...
 
     @abstractmethod
     def unload(self) -> None: ...

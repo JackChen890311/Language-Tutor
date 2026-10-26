@@ -15,7 +15,7 @@ A local-first AI language tutor that runs entirely on Apple Silicon. No cloud, n
 - **Light & dark themes** — a warm amber design system that follows your system appearance, with an instant switch under the ⋮ menu
 - **Rolling memory** — conversations summarize automatically as they grow, keeping context within token limits
 - **TTS playback** — hear any response or word pronounced (optional); target-language sentences are auto-tagged and each gets its own autoplaying 🔊 button
-- **Voice input** — speak instead of type with Whisper STT (optional)
+- **Voice input** — speak instead of type with Whisper large-v3-turbo STT; understands both your target language and your native language (optional)
 - **Image chat** — attach a photo and ask questions about it via a vision-language model (optional)
 - **Progress tracking** — daily streak, weekly review count, proficiency level history
 
@@ -94,7 +94,9 @@ Download any of these from **Settings → Model Status** to unlock additional fe
 |---|---|---|
 | Image chat (VLM) | `mlx-community/gemma-4-26b-a4b-it-4bit` | already downloaded if you did step 2 — LLM and VLM share the same model by default |
 | TTS playback | `prince-canuma/Kokoro-82M` | `hf download prince-canuma/Kokoro-82M` |
-| Voice input (STT) | `mlx-community/whisper-large-v3` | `hf download mlx-community/whisper-large-v3` |
+| Voice input (STT) | `mlx-community/whisper-large-v3-turbo` | `hf download mlx-community/whisper-large-v3-turbo` |
+
+Voice input transcribes in your target language first (for example `ja` when studying Japanese) instead of letting Whisper auto-detect, which is unreliable on short clips. It also decodes in your native language and keeps that result only when it is clearly more confident, so you can ask a question in Chinese without it being forced into Japanese.
 
 ---
 
@@ -107,7 +109,7 @@ Edit `config/models.json` to swap any model slot:
   "llm": { "provider": "mlx", "model": "mlx-community/gemma-4-26b-a4b-it-4bit" },
   "vlm": { "provider": "mlx", "model": "mlx-community/gemma-4-26b-a4b-it-4bit" },
   "tts": { "provider": "mlx-audio", "model": "prince-canuma/Kokoro-82M" },
-  "stt": { "provider": "mlx-audio", "model": "mlx-community/whisper-large-v3" }
+  "stt": { "provider": "mlx-audio", "model": "mlx-community/whisper-large-v3-turbo" }
 }
 ```
 
@@ -135,7 +137,7 @@ Models (MLX inference, lazy-loaded)
     ├── MLXLLMModel        — Gemma LLM (thinking-mode aware if the tokenizer supports it)
     ├── MLXVLMModel        — Gemma vision-language model
     ├── MLXTTSModel        — Kokoro TTS
-    └── WhisperModel       — Whisper STT
+    └── WhisperModel       — Whisper large-v3-turbo STT
     │
     ▼
 DataStore (local JSON + Markdown files)
