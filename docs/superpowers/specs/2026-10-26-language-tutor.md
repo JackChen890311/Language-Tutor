@@ -98,10 +98,14 @@ The return value is a `ChatInputValue`:
 #### Suggestions toggle
 
 The toggle moves into `with st.bottom:`, the container Streamlit pins directly
-above the chat input. It renders as a compact right-aligned pill labelled
-`💡 Suggestions` or `💡 Suggestions · N`. The pill sits above the send button, so
-the whole bottom area — toggle, composer — is one visual block and stays put
-while the transcript scrolls.
+above the chat input. It renders as a compact right-aligned pill containing the
+lightbulb icon and, when there are suggestions, the count (`💡` / `💡 N`). The
+pill sits above the send button, so the whole bottom area — toggle, composer —
+is one visual block and stays put while the transcript scrolls.
+
+The word "Suggestions" was removed from the visible label at the user's request;
+the tooltip still reads "Show/Hide word suggestions (N)" so the icon remains
+self-explanatory on hover.
 
 The rail itself is unchanged: the button still flips the shared
 `show_word_suggestions` preference and the right-hand rail still closes from its

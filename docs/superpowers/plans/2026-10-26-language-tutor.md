@@ -61,6 +61,8 @@
       record, text and send in one widget
 - [x] Moved the Suggestions toggle into `st.bottom`, right-aligned directly
       above the send button, with a live count in the label
+- [x] Trimmed the button to `💡` / `💡 N` at the user's request; the
+      "Suggestions" wording now lives only in the tooltip
 - [x] Removed the fixed-position `chat_toggle` CSS, viewport-width maths and
       mobile media query
 - [x] Replaced `render_stt_input()` with `transcribe_audio()`; the caller checks
@@ -82,8 +84,8 @@
   `accept_audio` is enabled).
 - Transcribes audio through `transcribe_audio()` before sending.
 - Renders the Suggestions toggle inside `with st.bottom:`; the button label is
-  `💡 Suggestions` or `💡 Suggestions · N`, and the rail state still comes from
-  `rail_is_open()` / `set_rail_open()`.
+  `💡` or `💡 N` (the tooltip still spells out show/hide), and the rail state
+  still comes from `rail_is_open()` / `set_rail_open()`.
 - `st.chat_input()` now enables a single image attachment plus optional audio at
   a 16 kHz sample rate.
 
