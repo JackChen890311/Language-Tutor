@@ -1,7 +1,11 @@
 import base64
+import os
 import re
 import tempfile
+from typing import Protocol
+
 import streamlit as st
+
 from ui.state import get
 
 # Tolerates malformed tags the model occasionally emits (e.g. "<s speak>"
@@ -87,16 +91,26 @@ def render_tts_button(text: str, lang: str, key: str) -> None:
         st.html(autoplay_audio_html(audio_bytes))
 
 
-def render_stt_input(key: str) -> str | None:
-    mm = get("mm")
-    if not mm.is_model_available("stt"):
-        return None
-    audio = st.audio_input("🎤 Speak", key=f"stt_{key}")
-    if audio:
+class AudioUpload(Protocol):
+    def getvalue(self) -> bytes: ...
+
+
+def transcribe_audio(
+    audio: AudioUpload, lang: str | None = None, fallback_lang: str | None = None
+) -> str:
+    """Transcribe a recorded audio upload to text.
+
+    ``audio`` is any file-like object exposing ``getvalue()`` — for example the
+    ``UploadedFile`` returned by ``st.chat_input(accept_audio=True)``.
+    """
+    tmp_path = None
+    try:
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
             f.write(audio.getvalue())
             tmp_path = f.name
         with st.spinner("Transcribing..."):
-            stt = mm.get_stt()
-            return stt.transcribe(tmp_path)
-    return None
+            stt = get("mm").get_stt()
+            return stt.transcribe(tmp_path, lang=lang, fallback_lang=fallback_lang)
+    finally:
+        if tmp_path:
+            os.unlink(tmp_path)

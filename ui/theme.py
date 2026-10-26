@@ -631,43 +631,39 @@ div[class*="st-key-ltcardhover_"]:hover {
 }
 [data-testid="stBottom"] { background: linear-gradient(transparent, var(--lt-bg) 40%); }
 
-/* floating suggestion toggle, aligned with the pinned chat input */
-/* The bottom input is min(63.75rem, main width - 10rem). Reserve 3.5rem for the
-   44px button and its gap so it sits just outside the input's right edge. */
-.stApp { --lt-sidebar-w: 0px; }
-.stApp:has([data-testid="stSidebar"][aria-expanded="true"]) { --lt-sidebar-w: 18.75rem; }
-div[class*="st-key-chat_toggle"] {
-    --lt-main-w: calc(100vw - var(--lt-sidebar-w));
-    --lt-chat-input-w: min(63.75rem, calc(var(--lt-main-w) - 10rem));
-    position: fixed;
-    right: max(0.5rem, calc((var(--lt-main-w) - var(--lt-chat-input-w)) / 2 - 3.5rem));
-    bottom: 4.05rem;
-    z-index: 1000;
+/* suggestion rail toggle, inline just above the composer */
+div[class*="st-key-chat_toolbar"] {
+    margin: 0 0 0.3rem;
+}
+div[class*="st-key-chat_toolbar"] [data-testid="stElementContainer"] {
+    width: 100%;
+}
+div[class*="st-key-chat_toolbar"] .stButton {
+    display: flex;
+    width: 100%;
+    justify-content: flex-end;
+}
+div[class*="st-key-chat_toolbar"] .stButton button {
+    display: flex;
     width: auto;
-}
-div[class*="st-key-chat_toggle"] button {
-    width: 2.75rem;
-    height: 2.75rem;
-    min-height: 2.75rem;
-    padding: 0;
+    min-height: 2rem;
+    height: 2rem;
+    padding: 0 0.8rem;
     border-radius: 999px;
-    font-size: 1.1rem;
+    font-size: 0.8rem;
+    font-weight: 550;
     line-height: 1;
-    box-shadow: 0 12px 28px var(--lt-shadow-hover-color);
+    box-shadow: none;
 }
-div[class*="st-key-chat_toggle"] button[data-testid="stBaseButton-tertiary"] {
+div[class*="st-key-chat_toolbar"] .stButton button[data-testid="stBaseButton-tertiary"] {
     background: var(--lt-surface);
     border: 1px solid var(--lt-border);
+    color: var(--lt-muted);
 }
-div[class*="st-key-chat_toggle"] button[data-testid="stBaseButton-tertiary"]:hover {
+div[class*="st-key-chat_toolbar"] .stButton button[data-testid="stBaseButton-tertiary"]:hover {
     border-color: var(--lt-accent-border);
     color: var(--lt-accent);
-}
-@media (max-width: 900px) {
-    div[class*="st-key-chat_toggle"] {
-        right: 0.75rem;
-        bottom: 7.6rem;
-    }
+    transform: none;
 }
 
 /* speakable sentence + its play button */

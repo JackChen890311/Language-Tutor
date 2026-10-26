@@ -4,7 +4,7 @@ import tempfile
 import streamlit as st
 
 from ui import theme
-from ui.components.audio_controls import render_message_with_tts, render_stt_input
+from ui.components.audio_controls import render_message_with_tts, transcribe_audio
 from ui.components.stream_display import stream_with_thinking
 from ui.components.word_chip import (
     add_word_suggestions,
@@ -16,6 +16,14 @@ from ui.components.word_chip import (
     set_rail_open,
 )
 from ui.state import get
+
+
+def _save_uploaded_image(uploaded) -> str:
+    """Copy an uploaded image to a temp file so the model layer can open it."""
+    suffix = os.path.splitext(uploaded.name)[1]
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
+        f.write(uploaded.getvalue())
+        return f.name
 
 
 def _render_sessions(store, target_lang: str, active_session: str | None) -> None:
@@ -54,6 +62,7 @@ def render() -> None:
     native_lang, target_lang = language_svc.get_language_pair()
     store = get("store")
     chat_svc = get("chat_svc")
+    stt_available = get("mm").is_model_available("stt")
 
     theme.page_header(
         "💬",
@@ -130,19 +139,6 @@ def render() -> None:
                 else:
                     st.write(msg["content"])
 
-        uploaded_image = st.file_uploader(
-            "📷 Attach an image (optional)",
-            type=["jpg", "jpeg", "png"],
-            key=f"img_{active_session}",
-            label_visibility="collapsed",
-        )
-        image_path = None
-        if uploaded_image:
-            suffix = os.path.splitext(uploaded_image.name)[1]
-            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
-                f.write(uploaded_image.getvalue())
-                image_path = f.name
-
     if rail_col is not None:
         with rail_col:
             with st.container(key="word_rail"):
@@ -154,27 +150,45 @@ def render() -> None:
                     closable=True,
                 )
 
-    stt_text = render_stt_input(key=active_session)
     suggestions = get_word_suggestions()
-    suggestion_count = f" ({len(suggestions)})" if suggestions else ""
-    with st.container(key="chat_toggle"):
-        if st.button(
-            "💡",
-            key="toggle_suggestions",
-            help=(
-                f"Hide word suggestions{suggestion_count}"
-                if show_rail
-                else f"Show word suggestions{suggestion_count}"
-            ),
-            type="primary" if show_rail else "tertiary",
-        ):
-            set_rail_open(not show_rail)
-            st.rerun()
+    with st.bottom:
+        with st.container(key="chat_toolbar"):
+            help_text = f"{'Hide' if show_rail else 'Show'} word suggestions"
+            if suggestions:
+                help_text += f" ({len(suggestions)})"
+            if st.button(
+                f"💡 Suggestions · {len(suggestions)}" if suggestions else "💡 Suggestions",
+                key="toggle_suggestions",
+                help=help_text,
+                type="primary" if show_rail else "tertiary",
+            ):
+                set_rail_open(not show_rail)
+                st.rerun()
 
-    user_input = st.chat_input("Type a message…")
-    final_input = stt_text or user_input
+    submission = st.chat_input(
+        "Type a message…",
+        accept_file=True,
+        file_type=["jpg", "jpeg", "png"],
+        accept_audio=stt_available,
+        audio_sample_rate=16000,
+        key=f"composer_{active_session}",
+    )
+    if not submission:
+        return
 
-    if final_input:
+    final_input = submission.text.strip()
+    audio = getattr(submission, "audio", None)
+    if audio is not None:
+        transcript = transcribe_audio(audio, lang=target_lang, fallback_lang=native_lang)
+        if transcript:
+            final_input = transcript
+
+    image_path = _save_uploaded_image(submission.files[0]) if submission.files else None
+    final_input = final_input or ("📷" if image_path else "")
+    if not final_input:
+        return
+
+    try:
         history_before = chat_svc.get_history(target_lang, active_session)
         is_first_message = len(history_before) == 0
         with st.chat_message("user"):
@@ -209,3 +223,6 @@ def render() -> None:
 
         language_svc.update_streak(target_lang)
         st.rerun()
+    finally:
+        if image_path:
+            os.unlink(image_path)
