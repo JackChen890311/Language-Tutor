@@ -79,14 +79,9 @@ editor therefore affects the very next turn, including mid-conversation.
 
 - A 📖 button sits in the bottom toolbar, directly beside the 💡 suggestions
   toggle and right-aligned above the composer.
-- It opens the editor in the right rail, using the same 3:1 chat/sidebar split as
-  the word-suggestion panel.
-- When suggestions and the editor are both open they stack in that rail; the
-  column opens if either panel is active.
-- The editor card has a `✕` close button, a full-width caption, a 260px text
-  area, a live character count, and stacked `Save material` / `Clear material`
-  buttons sized for the narrow column.
-- The 📖 button is highlighted when material exists, and the title area shows
+- It opens a card above the transcript with a collapsed-label text area, a live
+  character count, and `Save material` / `Clear material` actions.
+- The button is highlighted when material exists, and the title area shows
   `📖 Course material · N characters`, adding `(first 20,000 used)` when
   truncated.
 - The editor is per-session. Switching chats closes the previous editor view;
@@ -121,10 +116,7 @@ still receive material if it is opened as a chat.
 - Headless Chrome at 1440×1000:
   - 📖 and 💡 render side by side in the bottom toolbar, 15px apart;
   - the pair is right-aligned above the composer;
-  - 📖 is highlighted when the chat has material;
-  - the editor card renders in the right rail at 213px wide;
-  - its text area, character count and stacked action buttons fit without
-    horizontal overflow.
+  - 📖 is highlighted when the chat has material.
 - Unit coverage:
   - material round-trip and empty-save clearing;
   - per-session isolation;
@@ -140,6 +132,4 @@ chosen so different conversations can follow different chapters without a
 separate material library. A 20,000-character prompt cap balances fidelity
 against the model's context budget. The 📖 toggle was moved from the title row
 into the composer toolbar on the same day so it sits beside 💡 and the pair reads
-as one compact action group. Its editor was then moved from above the transcript
-into the right rail so course material and word suggestions occupy the same
-place and the chat column stays stable.
+as one compact action group.

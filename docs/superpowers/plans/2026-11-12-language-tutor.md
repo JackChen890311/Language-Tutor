@@ -12,12 +12,10 @@
       material takes effect on the next message without restarting anything
 - [x] Capped the prompt copy at 20,000 characters and told both the model and
       the user when truncation happened
-- [x] Added a right-rail editor with a character count, save, clear and close
-      actions
+- [x] Added an editor above the transcript with a character count, save and
+      clear actions
 - [x] Added a 📖 toggle in the bottom toolbar, directly beside the 💡
       suggestions toggle; it opens that editor
-- [x] Reused the word-suggestion rail layout so the editor appears on the right
-      and can share the column with suggestions when both are open
 - [x] Shown an active-material caption and highlight on the 📖 toolbar button
       when the current chat has material
 - [x] Stored the material as Markdown inside the session folder, so deleting a
@@ -51,14 +49,10 @@
 
 - Added a 📖 toggle to the bottom toolbar, directly beside the 💡 suggestions
   toggle.
-- The editor renders in the right rail, matching the word-suggestion column.
-  The column opens when either the editor or the suggestions rail is active,
-  and both stack when both are open.
 - `_render_material_editor()` provides a 260px text area, live character count,
-  over-limit warning, `Save material`, `Clear material` and `✕` close actions.
+  over-limit warning, `Save material` and `Clear material`.
 - Saving increments a per-session editor revision so the widget reloads the
   stored value without leaving unsaved widget state behind.
-- The action buttons stack vertically to fit the narrow rail.
 
 #### ui/theme.py
 
@@ -89,11 +83,9 @@
   - no runtime exceptions.
 - Headless Chrome at 1440×1000: 📖 and 💡 are 15px apart in the bottom
   toolbar, right-aligned above the composer; 📖 is highlighted when material
-  exists; the editor card renders in the right rail, and its text area and
-  stacked action buttons fit the 213px column.
+  exists.
 
 ### Commit
 
 - `feat: add per-chat course material` (`f7334b0`)
 - `ui: move course material toggle into composer toolbar` (`543537b`)
-- `ui: move course material editor into right rail` (`69e4e41`)
