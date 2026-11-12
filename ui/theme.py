@@ -631,17 +631,16 @@ div[class*="st-key-ltcardhover_"]:hover {
 }
 [data-testid="stBottom"] { background: linear-gradient(transparent, var(--lt-bg) 40%); }
 
-/* suggestion rail toggle, inline just above the composer */
+/* suggestion rail and course-material toggles, inline above the composer */
 div[class*="st-key-chat_toolbar"] {
     margin: 0 0 0.3rem;
 }
 div[class*="st-key-chat_toolbar"] [data-testid="stElementContainer"] {
-    width: 100%;
+    width: auto;
 }
 div[class*="st-key-chat_toolbar"] .stButton {
     display: flex;
-    width: 100%;
-    justify-content: flex-end;
+    width: auto;
 }
 div[class*="st-key-chat_toolbar"] .stButton button {
     display: flex;

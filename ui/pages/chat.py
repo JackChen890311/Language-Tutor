@@ -140,7 +140,8 @@ def render() -> None:
 
     material = store.load_chat_material(target_lang, active_session)
     show_rail = rail_is_open()
-    title_col, material_col, rename_col = st.columns([5, 1, 1], vertical_alignment="center")
+    editor_open = st.session_state.get("material_editor_for") == active_session
+    title_col, rename_col = st.columns([6, 1], vertical_alignment="center")
     with title_col:
         st.markdown(f"### {session_info['name'] if session_info else 'Chat'}")
         if material:
@@ -148,16 +149,6 @@ def render() -> None:
             if len(material) > MAX_COURSE_MATERIAL_CHARS:
                 material_note += f" (first {MAX_COURSE_MATERIAL_CHARS:,} used)"
             st.caption(material_note)
-    with material_col:
-        editor_open = st.session_state.get("material_editor_for") == active_session
-        if st.button(
-            "📖",
-            key=f"material_{active_session}",
-            help="Edit course material for this chat",
-            type="primary" if material or editor_open else "tertiary",
-        ):
-            st.session_state.material_editor_for = None if editor_open else active_session
-            st.rerun()
     with rename_col:
         if st.button("✏️", key=f"rename_{active_session}", help="Rename chat", type="tertiary"):
             st.session_state.renaming_session = active_session
@@ -223,7 +214,21 @@ def render() -> None:
 
     suggestions = get_word_suggestions()
     with st.bottom:
-        with st.container(key="chat_toolbar"):
+        with st.container(
+            key="chat_toolbar",
+            horizontal=True,
+            horizontal_alignment="right",
+            gap="small",
+        ):
+            if st.button(
+                "📖",
+                key=f"material_{active_session}",
+                help="Edit course material for this chat",
+                type="primary" if material or editor_open else "tertiary",
+            ):
+                st.session_state.material_editor_for = None if editor_open else active_session
+                st.rerun()
+
             help_text = f"{'Hide' if show_rail else 'Show'} word suggestions"
             if suggestions:
                 help_text += f" ({len(suggestions)})"
