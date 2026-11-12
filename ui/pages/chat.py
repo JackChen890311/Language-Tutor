@@ -6,6 +6,7 @@ import streamlit as st
 from services.prompt_builder import MAX_COURSE_MATERIAL_CHARS
 from ui import theme
 from ui.components.audio_controls import render_message_with_tts, transcribe_audio
+from ui.components.scroll_top import apply_pending_scroll_to_top, scroll_to_top_button
 from ui.components.stream_display import stream_with_thinking
 from ui.components.word_chip import (
     add_word_suggestions,
@@ -240,6 +241,10 @@ def render() -> None:
             ):
                 set_rail_open(not show_rail)
                 st.rerun()
+
+            scroll_to_top_button()
+
+    apply_pending_scroll_to_top()
 
     submission = st.chat_input(
         "Type a message…",
