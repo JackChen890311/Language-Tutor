@@ -60,11 +60,19 @@ def _render_sessions(store, target_lang: str, active_session: str | None) -> Non
 
 def _render_material_editor(store, target_lang: str, session_id: str, material: str) -> None:
     with st.container(key="ltcard_material"):
-        theme.section_header(
-            "Course material",
-            icon="📖",
-            caption="Paste text the tutor should base this conversation on.",
-        )
+        title_col, close_col = st.columns([6, 1], vertical_alignment="center")
+        with title_col:
+            theme.section_header("Course material", icon="📖")
+        with close_col:
+            if st.button(
+                "✕",
+                key=f"close_material_{session_id}",
+                help="Hide course material",
+                type="tertiary",
+            ):
+                st.session_state.material_editor_for = None
+                st.rerun()
+        st.caption("Paste text the tutor should base this conversation on.")
         revision_key = f"material_revision_{session_id}"
         revision = st.session_state.get(revision_key, 0)
         draft = st.text_area(
@@ -84,29 +92,26 @@ def _render_material_editor(store, target_lang: str, session_id: str, material: 
         elif char_count:
             st.caption(f"{char_count:,} characters · used from your next message")
 
-        save_col, clear_col = st.columns(2)
-        with save_col:
-            if st.button(
-                "💾  Save material",
-                key=f"material_save_{session_id}_{revision}",
-                type="primary",
-                use_container_width=True,
-            ):
-                store.save_chat_material(target_lang, session_id, draft)
-                st.session_state[revision_key] = revision + 1
-                st.toast("Course material saved. The tutor will use it next turn.")
-                st.rerun()
-        with clear_col:
-            if st.button(
-                "Clear material",
-                key=f"material_clear_{session_id}_{revision}",
-                disabled=not material,
-                use_container_width=True,
-            ):
-                store.clear_chat_material(target_lang, session_id)
-                st.session_state[revision_key] = revision + 1
-                st.toast("Course material cleared.")
-                st.rerun()
+        if st.button(
+            "💾  Save material",
+            key=f"material_save_{session_id}_{revision}",
+            type="primary",
+            use_container_width=True,
+        ):
+            store.save_chat_material(target_lang, session_id, draft)
+            st.session_state[revision_key] = revision + 1
+            st.toast("Course material saved. The tutor will use it next turn.")
+            st.rerun()
+        if st.button(
+            "Clear material",
+            key=f"material_clear_{session_id}_{revision}",
+            disabled=not material,
+            use_container_width=True,
+        ):
+            store.clear_chat_material(target_lang, session_id)
+            st.session_state[revision_key] = revision + 1
+            st.toast("Course material cleared.")
+            st.rerun()
 
 
 def render() -> None:
@@ -154,9 +159,6 @@ def render() -> None:
             st.session_state.renaming_session = active_session
             st.rerun()
 
-    if st.session_state.get("material_editor_for") == active_session:
-        _render_material_editor(store, target_lang, active_session, material)
-
     if st.session_state.get("renaming_session") == active_session:
         with st.container(key="ltcard_rename"):
             new_name = st.text_input(
@@ -178,7 +180,7 @@ def render() -> None:
                     st.session_state.pop("renaming_session", None)
                     st.rerun()
 
-    if show_rail:
+    if show_rail or editor_open:
         chat_col, rail_col = st.columns([3, 1], gap="large")
     else:
         chat_col, rail_col = st.container(), None
@@ -203,14 +205,17 @@ def render() -> None:
 
     if rail_col is not None:
         with rail_col:
-            with st.container(key="word_rail"):
-                render_word_rail(
-                    target_lang,
-                    native_lang,
-                    title="Suggestions",
-                    empty_text="Words worth learning will appear here as you chat.",
-                    closable=True,
-                )
+            if editor_open:
+                _render_material_editor(store, target_lang, active_session, material)
+            if show_rail:
+                with st.container(key="word_rail"):
+                    render_word_rail(
+                        target_lang,
+                        native_lang,
+                        title="Suggestions",
+                        empty_text="Words worth learning will appear here as you chat.",
+                        closable=True,
+                    )
 
     suggestions = get_word_suggestions()
     with st.bottom:
