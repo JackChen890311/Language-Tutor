@@ -6,7 +6,8 @@ Delta vs the 2026-10-26 spec. A chat can now carry its own pasted course
 material. The material is injected into the system prompt on every turn, so the
 tutor reads it before replying and uses it for the rest of the conversation.
 Editing or clearing the material changes the next reply immediately; no restart
-or session reset is needed.
+or session reset is needed. The composer toolbar also gains a Back to top
+button.
 
 ---
 
@@ -89,7 +90,22 @@ editor therefore affects the very next turn, including mid-conversation.
 - The material can be empty, which is the default for every new or existing
   chat.
 - The toolbar uses a horizontal container with `width: auto` button wrappers, so
-  the two pills stay side by side instead of stretching to full width.
+  the book, bulb and up-arrow pills stay side by side instead of stretching to
+  full width.
+
+### Back to top
+
+- A ⬆️ button renders after the 💡 toggle in the same toolbar.
+- Clicking it sets a one-shot session flag and reruns. On the next render,
+  `ui/components/scroll_top.py` pops the flag and injects a script through
+  `st.html(..., unsafe_allow_javascript=True)`.
+- The script calls `scrollTo({ top: 0 })` on
+  `section[data-testid="stAppScrollToBottomContainer"]` (the app's main scroll
+  pane) and on the window. It runs on the next animation frame and again after
+  150ms and 500ms, because Streamlit may restore its chat scroll position after
+  the rerun.
+- The button performs no model or data work; it only affects the browser scroll
+  position.
 
 ## Behaviour
 
@@ -98,6 +114,7 @@ editor therefore affects the very next turn, including mid-conversation.
 - Clearing material immediately removes the section from future system prompts.
 - Material follows the session through renames and is deleted with the session.
 - Long material is usable but explicitly truncated in both the UI and prompt.
+- ⬆️ returns the main pane to the top in long conversations.
 
 ## Scope
 
@@ -107,21 +124,22 @@ still receive material if it is opened as a chat.
 
 ## Testing
 
-- `make test`: **158 passed**
+- `make test`: **160 passed**
 - `make lint`: clean
 - Streamlit `AppTest` smoke run:
   - one 📖 button and no exceptions on the Chat page;
   - opening the editor loads the saved material;
   - editing and saving writes the new value to `material.md`.
-- Headless Chrome at 1440×1000:
-  - 📖 and 💡 render side by side in the bottom toolbar, 15px apart;
-  - the pair is right-aligned above the composer;
-  - 📖 is highlighted when the chat has material.
+- Headless Chrome at 1440×1000, with a 40-message conversation:
+  - 📖, 💡 and ⬆️ render side by side in the bottom toolbar;
+  - clicking ⬆️ moved the main scroll container from `scrollTop=2945` to `0`;
+  - the top of the conversation was visible afterwards.
 - Unit coverage:
   - material round-trip and empty-save clearing;
   - per-session isolation;
   - prompt inclusion, omission and truncation;
-  - streaming and non-streaming chat paths both receive the session material.
+  - streaming and non-streaming chat paths both receive the session material;
+  - the scroll flag is set, the script is injected once, and the flag is cleared.
 
 ## Rationale
 
@@ -132,4 +150,7 @@ chosen so different conversations can follow different chapters without a
 separate material library. A 20,000-character prompt cap balances fidelity
 against the model's context budget. The 📖 toggle was moved from the title row
 into the composer toolbar on the same day so it sits beside 💡 and the pair reads
-as one compact action group.
+as one compact action group. A right-rail experiment was reverted at the user's
+request, returning the editor above the transcript. The ⬆️ button was added to
+the same toolbar because long conversations leave the pinned composer far from
+the start of the chat.

@@ -20,6 +20,10 @@
       when the current chat has material
 - [x] Stored the material as Markdown inside the session folder, so deleting a
       chat also deletes its material
+- [x] Added a ⬆️ Back to top button to the composer toolbar; it scrolls the
+      chat pane to the top without reloading the page
+- [x] Kept the course-material editor above the transcript (the right-rail
+      experiment was reverted)
 - [x] Added unit coverage for storage isolation, prompt inclusion/omission,
       truncation and per-session prompt assembly
 
@@ -49,10 +53,22 @@
 
 - Added a 📖 toggle to the bottom toolbar, directly beside the 💡 suggestions
   toggle.
+- Added a ⬆️ Back to top button after the 💡 toggle.
 - `_render_material_editor()` provides a 260px text area, live character count,
   over-limit warning, `Save material` and `Clear material`.
 - Saving increments a per-session editor revision so the widget reloads the
   stored value without leaving unsaved widget state behind.
+- Calls `apply_pending_scroll_to_top()` once the toolbar has rendered.
+
+#### ui/components/scroll_top.py
+
+- `scroll_to_top_button()` sets a one-shot session flag and reruns.
+- `apply_pending_scroll_to_top()` pops the flag and injects a small script via
+  `st.html(..., unsafe_allow_javascript=True)`.
+- The script scrolls
+  `section[data-testid="stAppScrollToBottomContainer"]` to the top on the next
+  frame and again after 150ms and 500ms, because Streamlit may restore its chat
+  scroll position after the rerun.
 
 #### ui/theme.py
 
@@ -66,6 +82,8 @@
   material truncated with counts.
 - `test_chat_service.py`: material reaches the system prompt in both streaming
   and non-streaming paths, and is not shared between sessions.
+- `test_scroll_top.py`: the button sets the pending flag, the script is injected
+  once, and the flag is cleared afterwards.
 
 #### README.md
 
@@ -74,18 +92,21 @@
 
 ### Testing Performed
 
-- `make test`: **158 passed**
+- `make test`: **160 passed**
 - `make lint`: clean
 - Streamlit `AppTest` smoke run against a temporary data directory:
   - Chat page renders with no exceptions;
   - 📖 opens the editor and loads the saved material;
   - editing and saving updates `material.md`;
   - no runtime exceptions.
-- Headless Chrome at 1440×1000: 📖 and 💡 are 15px apart in the bottom
-  toolbar, right-aligned above the composer; 📖 is highlighted when material
-  exists.
+- Headless Chrome at 1440×1000, with a 40-message conversation:
+  - 📖, 💡 and ⬆️ sit side by side in the bottom toolbar;
+  - clicking ⬆️ moved the main scroll container from `scrollTop=2945` to `0`;
+  - the page was left showing the top of the conversation.
 
 ### Commit
 
 - `feat: add per-chat course material` (`f7334b0`)
 - `ui: move course material toggle into composer toolbar` (`543537b`)
+- `revert: move course material editor back above transcript` (`78ca004`)
+- `feat: add back-to-top button to chat toolbar` (`8379b68`)
