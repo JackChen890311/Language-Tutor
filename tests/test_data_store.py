@@ -53,6 +53,26 @@ def test_chat_summary_appends(tmp_store):
     assert "Second summary." in summary
 
 
+def test_chat_material_round_trip(tmp_store):
+    sid = tmp_store.create_chat_session("ja", "Test")
+    tmp_store.save_chat_material("ja", sid, "# Chapter 1\nこんにちは")
+    assert tmp_store.load_chat_material("ja", sid) == "# Chapter 1\nこんにちは"
+
+
+def test_chat_material_is_scoped_per_session(tmp_store):
+    first = tmp_store.create_chat_session("ja", "First")
+    second = tmp_store.create_chat_session("ja", "Second")
+    tmp_store.save_chat_material("ja", first, "First material")
+    assert tmp_store.load_chat_material("ja", second) == ""
+
+
+def test_saving_empty_chat_material_clears_it(tmp_store):
+    sid = tmp_store.create_chat_session("ja", "Test")
+    tmp_store.save_chat_material("ja", sid, "Some material")
+    tmp_store.save_chat_material("ja", sid, "   ")
+    assert tmp_store.load_chat_material("ja", sid) == ""
+
+
 def test_delete_chat_session(tmp_store):
     sid = tmp_store.create_chat_session("ja", "To delete")
     tmp_store.delete_chat_session("ja", sid)

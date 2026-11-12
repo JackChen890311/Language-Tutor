@@ -130,6 +130,28 @@ class DataStore:
         path = self._chat_session_dir(lang, session_id) / "messages.json"
         path.write_text(json.dumps(messages, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    def _chat_material_path(self, lang: str, session_id: str) -> Path:
+        return self._chat_session_dir(lang, session_id) / "material.md"
+
+    def load_chat_material(self, lang: str, session_id: str) -> str:
+        path = self._chat_material_path(lang, session_id)
+        if not path.exists():
+            return ""
+        return path.read_text(encoding="utf-8")
+
+    def save_chat_material(self, lang: str, session_id: str, content: str) -> None:
+        path = self._chat_material_path(lang, session_id)
+        content = (content or "").strip()
+        if not content:
+            self.clear_chat_material(lang, session_id)
+            return
+        path.write_text(content, encoding="utf-8")
+
+    def clear_chat_material(self, lang: str, session_id: str) -> None:
+        path = self._chat_material_path(lang, session_id)
+        if path.exists():
+            path.unlink()
+
     def load_chat_summary(self, lang: str, session_id: str) -> str:
         path = self._chat_session_dir(lang, session_id) / "summary.md"
         if not path.exists():

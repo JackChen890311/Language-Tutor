@@ -1,4 +1,8 @@
-from services.prompt_builder import PromptBuilder, get_difficulty_levels
+from services.prompt_builder import (
+    MAX_COURSE_MATERIAL_CHARS,
+    PromptBuilder,
+    get_difficulty_levels,
+)
 
 
 def test_chat_prompt_includes_languages():
@@ -216,3 +220,33 @@ def test_lesson_prompt_non_japanese_target_no_furigana_rule():
         difficulty="TOPIK3",
     )
     assert "漢字" not in prompt
+
+
+def test_chat_prompt_includes_course_material():
+    pb = PromptBuilder()
+    prompt = pb.chat_system_prompt(
+        native_lang="zh-TW",
+        target_lang="ja",
+        course_material="第一課：自己紹介\nはじめまして",
+    )
+    assert "## Course material" in prompt
+    assert "<course_material>" in prompt
+    assert "第一課：自己紹介" in prompt
+    assert "はじめまして" in prompt
+
+
+def test_chat_prompt_omits_empty_course_material():
+    pb = PromptBuilder()
+    prompt = pb.chat_system_prompt(native_lang="zh-TW", target_lang="ja", course_material="  ")
+    assert "## Course material" not in prompt
+    assert "<course_material>" not in prompt
+
+
+def test_chat_prompt_truncates_long_course_material():
+    pb = PromptBuilder()
+    material = "あ" * (MAX_COURSE_MATERIAL_CHARS + 500)
+    prompt = pb.chat_system_prompt(native_lang="zh-TW", target_lang="ja", course_material=material)
+    assert "あ" * MAX_COURSE_MATERIAL_CHARS in prompt
+    assert "あ" * (MAX_COURSE_MATERIAL_CHARS + 1) not in prompt
+    assert "Material truncated" in prompt
+    assert f"{MAX_COURSE_MATERIAL_CHARS + 500} characters" in prompt

@@ -10,6 +10,7 @@ A local-first AI language tutor that runs entirely on Apple Silicon. No cloud, n
 
 - **Structured lessons** — vocabulary introduction, grammar explanation, and exercises, followed by free conversation
 - **AI chat** — real-time streaming conversation with word suggestions and correction
+- **Course material** — paste a chapter, article or vocabulary list into any chat; the tutor reads it as part of the system prompt and bases the conversation on it. Edits apply to the next message.
 - **Level test** — auto-generated multiple-choice quiz that maps your score to JLPT / HSK / TOPIK / CEFR
 - **Word list** — one-click save of suggested words with full AI enrichment (translation, definitions, examples, conjugations, pitch accent, etc.)
 - **Light & dark themes** — a warm amber design system that follows your system appearance, with an instant switch under the ⋮ menu
@@ -144,7 +145,7 @@ DataStore (local JSON + Markdown files)
     └── data/
         ├── settings.json
         └── {lang}/
-            ├── chats/         — session index + message history + summaries
+            ├── chats/         — session index + message history + summaries + course material
             ├── words/         — enriched word list
             ├── lessons/       — lesson notes (Markdown)
             └── progress/      — level assessment + completed topics

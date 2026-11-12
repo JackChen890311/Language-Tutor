@@ -16,6 +16,8 @@ DIFFICULTY_FRAMEWORKS: dict[str, dict] = {
 }
 _CEFR_FRAMEWORK = {"name": "CEFR", "levels": ["A1", "A2", "B1", "B2", "C1", "C2"]}
 
+MAX_COURSE_MATERIAL_CHARS = 20_000
+
 
 def get_difficulty_levels(target_lang: str) -> dict:
     return DIFFICULTY_FRAMEWORKS.get(target_lang, _CEFR_FRAMEWORK)
@@ -43,11 +45,39 @@ class PromptBuilder:
             )
         return ""
 
-    def chat_system_prompt(self, native_lang: str, target_lang: str) -> str:
+    def _course_material_section(self, course_material: str | None) -> str:
+        material = (course_material or "").strip()
+        if not material:
+            return ""
+        original_len = len(material)
+        if original_len > MAX_COURSE_MATERIAL_CHARS:
+            material = material[:MAX_COURSE_MATERIAL_CHARS]
+        return (
+            "\n## Course material\n"
+            "The learner pasted the following course material for this conversation. "
+            "Read it before replying and treat it as the primary source for vocabulary, "
+            "grammar, examples and progression. Reuse its words and structures in your "
+            "practice sentences. Do not contradict it or invent content that is not "
+            "consistent with it. If the learner asks about something outside the "
+            "material, help them while making clear it is outside the provided material. "
+            "Do not recite the material back unless the learner asks you to.\n"
+            f"<course_material>\n{material}\n</course_material>\n"
+            + (
+                f"[Material truncated: showing the first {MAX_COURSE_MATERIAL_CHARS} "
+                f"of {original_len} characters.]\n"
+                if original_len > MAX_COURSE_MATERIAL_CHARS
+                else ""
+            )
+        )
+
+    def chat_system_prompt(
+        self, native_lang: str, target_lang: str, course_material: str | None = None
+    ) -> str:
         return (
             f"You are a patient and encouraging language tutor.\n\n"
             f"Native language: {self._lang_name(native_lang)} ({native_lang})\n"
-            f"Target language: {self._lang_name(target_lang)} ({target_lang})\n\n"
+            f"Target language: {self._lang_name(target_lang)} ({target_lang})\n"
+            f"{self._course_material_section(course_material)}\n"
             f"Rules:\n"
             f"- Respond in {self._lang_name(native_lang)} for explanations and feedback\n"
             f"- Use {self._lang_name(target_lang)} for language practice\n"

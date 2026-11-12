@@ -101,3 +101,32 @@ def test_send_message_with_image_uses_vlm(tmp_store, mock_llm, mock_vlm):
     assert result["response"] == "画像に猫がいます。"
     mm.get_vlm.assert_called_once()
     mm.get_llm.assert_not_called()
+
+
+def test_send_message_includes_session_course_material(tmp_store, mock_llm):
+    mock_llm.generate.return_value = "いいですね。"
+    svc, _ = _make_services(tmp_store, mock_llm)
+    sid = tmp_store.create_chat_session("ja", "Test")
+    tmp_store.save_chat_material("ja", sid, "第一課：自己紹介")
+    svc.send_message("ja", sid, "zh-TW", "Hello", image_path=None)
+    system_prompt = mock_llm.generate.call_args.kwargs["system_prompt"]
+    assert "第一課：自己紹介" in system_prompt
+
+
+def test_stream_message_includes_session_course_material(tmp_store, mock_llm):
+    svc, _ = _make_services(tmp_store, mock_llm)
+    sid = tmp_store.create_chat_session("ja", "Test")
+    tmp_store.save_chat_material("ja", sid, "第二課：買い物")
+    svc.stream_message("ja", sid, "zh-TW", "Hello", image_path=None)
+    system_prompt = mock_llm.stream.call_args.kwargs["system_prompt"]
+    assert "第二課：買い物" in system_prompt
+
+
+def test_course_material_is_not_shared_between_sessions(tmp_store, mock_llm):
+    svc, _ = _make_services(tmp_store, mock_llm)
+    first = tmp_store.create_chat_session("ja", "First")
+    second = tmp_store.create_chat_session("ja", "Second")
+    tmp_store.save_chat_material("ja", first, "First session material")
+    svc.send_message("ja", second, "zh-TW", "Hello", image_path=None)
+    system_prompt = mock_llm.generate.call_args.kwargs["system_prompt"]
+    assert "First session material" not in system_prompt

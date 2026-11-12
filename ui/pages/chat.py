@@ -3,6 +3,7 @@ import tempfile
 
 import streamlit as st
 
+from services.prompt_builder import MAX_COURSE_MATERIAL_CHARS
 from ui import theme
 from ui.components.audio_controls import render_message_with_tts, transcribe_audio
 from ui.components.stream_display import stream_with_thinking
@@ -57,6 +58,57 @@ def _render_sessions(store, target_lang: str, active_session: str | None) -> Non
                     st.rerun()
 
 
+def _render_material_editor(store, target_lang: str, session_id: str, material: str) -> None:
+    with st.container(key="ltcard_material"):
+        theme.section_header(
+            "Course material",
+            icon="📖",
+            caption="Paste text the tutor should base this conversation on.",
+        )
+        revision_key = f"material_revision_{session_id}"
+        revision = st.session_state.get(revision_key, 0)
+        draft = st.text_area(
+            "Course material",
+            value=material,
+            height=260,
+            key=f"material_text_{session_id}_{revision}",
+            label_visibility="collapsed",
+            placeholder="Paste a textbook chapter, article, vocabulary list or notes…",
+        )
+        char_count = len((draft or "").strip())
+        if char_count > MAX_COURSE_MATERIAL_CHARS:
+            st.warning(
+                f"{char_count:,} characters. Only the first "
+                f"{MAX_COURSE_MATERIAL_CHARS:,} will be sent to the tutor."
+            )
+        elif char_count:
+            st.caption(f"{char_count:,} characters · used from your next message")
+
+        save_col, clear_col = st.columns(2)
+        with save_col:
+            if st.button(
+                "💾  Save material",
+                key=f"material_save_{session_id}_{revision}",
+                type="primary",
+                use_container_width=True,
+            ):
+                store.save_chat_material(target_lang, session_id, draft)
+                st.session_state[revision_key] = revision + 1
+                st.toast("Course material saved. The tutor will use it next turn.")
+                st.rerun()
+        with clear_col:
+            if st.button(
+                "Clear material",
+                key=f"material_clear_{session_id}_{revision}",
+                disabled=not material,
+                use_container_width=True,
+            ):
+                store.clear_chat_material(target_lang, session_id)
+                st.session_state[revision_key] = revision + 1
+                st.toast("Course material cleared.")
+                st.rerun()
+
+
 def render() -> None:
     language_svc = get("language_svc")
     native_lang, target_lang = language_svc.get_language_pair()
@@ -86,14 +138,33 @@ def render() -> None:
         (s for s in store.list_chat_sessions(target_lang) if s["id"] == active_session), None
     )
 
+    material = store.load_chat_material(target_lang, active_session)
     show_rail = rail_is_open()
-    title_col, rename_col = st.columns([6, 1], vertical_alignment="center")
+    title_col, material_col, rename_col = st.columns([5, 1, 1], vertical_alignment="center")
     with title_col:
         st.markdown(f"### {session_info['name'] if session_info else 'Chat'}")
+        if material:
+            material_note = f"📖 Course material · {len(material):,} characters"
+            if len(material) > MAX_COURSE_MATERIAL_CHARS:
+                material_note += f" (first {MAX_COURSE_MATERIAL_CHARS:,} used)"
+            st.caption(material_note)
+    with material_col:
+        editor_open = st.session_state.get("material_editor_for") == active_session
+        if st.button(
+            "📖",
+            key=f"material_{active_session}",
+            help="Edit course material for this chat",
+            type="primary" if material or editor_open else "tertiary",
+        ):
+            st.session_state.material_editor_for = None if editor_open else active_session
+            st.rerun()
     with rename_col:
         if st.button("✏️", key=f"rename_{active_session}", help="Rename chat", type="tertiary"):
             st.session_state.renaming_session = active_session
             st.rerun()
+
+    if st.session_state.get("material_editor_for") == active_session:
+        _render_material_editor(store, target_lang, active_session, material)
 
     if st.session_state.get("renaming_session") == active_session:
         with st.container(key="ltcard_rename"):

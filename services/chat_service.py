@@ -103,7 +103,11 @@ class ChatService:
         context.append({"role": "user", "content": user_text})
         # messages: raw storage list (no summary); context: LLM input (may include summary prefix)
 
-        system_prompt = self._pb.chat_system_prompt(native_lang=native_lang, target_lang=lang)
+        system_prompt = self._pb.chat_system_prompt(
+            native_lang=native_lang,
+            target_lang=lang,
+            course_material=self._store.load_chat_material(lang, session_id),
+        )
 
         if image_path:
             vlm = self._mm.get_vlm()
@@ -129,7 +133,11 @@ class ChatService:
     ) -> StreamCollector:
         context = self._memory.assemble_context(lang, session_id)
         context.append({"role": "user", "content": user_text})
-        system_prompt = self._pb.chat_system_prompt(native_lang=native_lang, target_lang=lang)
+        system_prompt = self._pb.chat_system_prompt(
+            native_lang=native_lang,
+            target_lang=lang,
+            course_material=self._store.load_chat_material(lang, session_id),
+        )
         if image_path:
             vlm = self._mm.get_vlm()
             raw = vlm.generate(context, image=image_path, system_prompt=system_prompt)
