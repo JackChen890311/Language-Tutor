@@ -77,7 +77,8 @@ editor therefore affects the very next turn, including mid-conversation.
 
 ### Chat UI
 
-- A 📖 button sits next to the chat title and rename button.
+- A 📖 button sits in the bottom toolbar, directly beside the 💡 suggestions
+  toggle and right-aligned above the composer.
 - It opens a card above the transcript with a collapsed-label text area, a live
   character count, and `Save material` / `Clear material` actions.
 - The button is highlighted when material exists, and the title area shows
@@ -87,6 +88,8 @@ editor therefore affects the very next turn, including mid-conversation.
   drafts are keyed by session so another chat's material is never shown.
 - The material can be empty, which is the default for every new or existing
   chat.
+- The toolbar uses a horizontal container with `width: auto` button wrappers, so
+  the two pills stay side by side instead of stretching to full width.
 
 ## Behaviour
 
@@ -110,6 +113,10 @@ still receive material if it is opened as a chat.
   - one 📖 button and no exceptions on the Chat page;
   - opening the editor loads the saved material;
   - editing and saving writes the new value to `material.md`.
+- Headless Chrome at 1440×1000:
+  - 📖 and 💡 render side by side in the bottom toolbar, 15px apart;
+  - the pair is right-aligned above the composer;
+  - 📖 is highlighted when the chat has material.
 - Unit coverage:
   - material round-trip and empty-save clearing;
   - per-session isolation;
@@ -123,4 +130,6 @@ the system prompt, use it in the following conversation, and allow the material
 to change at any time with the prompt refreshing accordingly. Per-chat scope was
 chosen so different conversations can follow different chapters without a
 separate material library. A 20,000-character prompt cap balances fidelity
-against the model's context budget.
+against the model's context budget. The 📖 toggle was moved from the title row
+into the composer toolbar on the same day so it sits beside 💡 and the pair reads
+as one compact action group.

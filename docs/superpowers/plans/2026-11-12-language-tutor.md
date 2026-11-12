@@ -12,10 +12,12 @@
       material takes effect on the next message without restarting anything
 - [x] Capped the prompt copy at 20,000 characters and told both the model and
       the user when truncation happened
-- [x] Added a 📖 editor above the transcript in the Chat page with a character
-      count, save and clear actions
-- [x] Shown an active-material caption and highlight on the 📖 button when the
-      current chat has material
+- [x] Added an editor above the transcript with a character count, save and
+      clear actions
+- [x] Added a 📖 toggle in the bottom toolbar, directly beside the 💡
+      suggestions toggle; it opens that editor
+- [x] Shown an active-material caption and highlight on the 📖 toolbar button
+      when the current chat has material
 - [x] Stored the material as Markdown inside the session folder, so deleting a
       chat also deletes its material
 - [x] Added unit coverage for storage isolation, prompt inclusion/omission,
@@ -45,11 +47,17 @@
 
 #### ui/pages/chat.py
 
-- Added a 📖 button beside the chat title and rename control.
+- Added a 📖 toggle to the bottom toolbar, directly beside the 💡 suggestions
+  toggle.
 - `_render_material_editor()` provides a 260px text area, live character count,
   over-limit warning, `Save material` and `Clear material`.
 - Saving increments a per-session editor revision so the widget reloads the
   stored value without leaving unsaved widget state behind.
+
+#### ui/theme.py
+
+- `chat_toolbar` is now a horizontal, right-aligned container so the 📖 and 💡
+  pill buttons sit side by side instead of stacking.
 
 #### tests/
 
@@ -73,7 +81,11 @@
   - 📖 opens the editor and loads the saved material;
   - editing and saving updates `material.md`;
   - no runtime exceptions.
+- Headless Chrome at 1440×1000: 📖 and 💡 are 15px apart in the bottom
+  toolbar, right-aligned above the composer; 📖 is highlighted when material
+  exists.
 
 ### Commit
 
 - `feat: add per-chat course material` (`f7334b0`)
+- `ui: move course material toggle into composer toolbar` (`543537b`)
